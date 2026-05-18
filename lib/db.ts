@@ -32,11 +32,24 @@ function initSchema(db: Database.Database) {
       imagen_url TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS turnos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha_apertura TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+      fecha_cierre TEXT,
+      efectivo_inicial INTEGER NOT NULL DEFAULT 0,
+      efectivo_final_sistema INTEGER,
+      efectivo_final_real INTEGER,
+      diferencia INTEGER,
+      notas TEXT,
+      estado TEXT NOT NULL DEFAULT 'abierto'
+    );
+
     CREATE TABLE IF NOT EXISTS ordenes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       total INTEGER NOT NULL,
       propina INTEGER NOT NULL DEFAULT 0,
       metodo_pago TEXT NOT NULL,
+      turno_id INTEGER REFERENCES turnos(id),
       estado TEXT NOT NULL DEFAULT 'pagada',
       creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
     );

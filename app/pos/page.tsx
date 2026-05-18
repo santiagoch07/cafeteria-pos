@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { formatMXN, pesosToCentavos } from "@/lib/format";
+import { useRouter } from "next/navigation";
+import { formatMXN, formatHora, pesosToCentavos } from "@/lib/format";
 
 type Producto = {
   id: number;
@@ -19,11 +20,27 @@ type TicketItem = {
   cantidad: number;
 };
 
+type Turno = {
+  id: number;
+  fecha_apertura: string;
+  efectivo_inicial: number;
+  estado: string;
+};
+
 type ModalEstado = "cerrado" | "pago" | "confirmacion";
 
 const PROPINA_PORCENTAJES = [0, 10, 15, 20];
 
 export default function PosPage() {
+  const router = useRouter();
+
+  // ── Turno ──
+  const [turno, setTurno] = useState<Turno | null>(null);
+  const [loadingTurno, setLoadingTurno] = useState(true);
+  const [efectivoInicial, setEfectivoInicial] = useState("0");
+  const [abriendo, setAbriendo] = useState(false);
+
+  // ── Productos y ticket ──
   const [productos, setProductos] = useState<Producto[]>([]);
   const [ticket, setTicket] = useState<TicketItem[]>([]);
   const [propinaPesos, setPropinaPesos] = useState<string>("0");
@@ -32,15 +49,40 @@ export default function PosPage() {
   const [confirmMsg, setConfirmMsg] = useState("");
   const [cobrando, setCobrando] = useState(false);
 
+  // Verificar turno abierto al cargar
+  useEffect(() => {
+    fetch("/api/turnos/abierto")
+      .then((r) => r.json())
+      .then((t) => setTurno(t))
+      .finally(() => setLoadingTurno(false));
+  }, []);
+
   const fetchProductos = useCallback(async () => {
     const res = await fetch("/api/productos");
     const data: Producto[] = await res.json();
     setProductos(data.filter((p) => p.disponible === 1));
   }, []);
 
-  useEffect(() => { fetchProductos(); }, [fetchProductos]);
+  useEffect(() => {
+    if (turno) fetchProductos();
+  }, [turno, fetchProductos]);
 
-  // Agrupar por categoría
+  async function abrirTurno(e: React.FormEvent) {
+    e.preventDefault();
+    setAbriendo(true);
+    const res = await fetch("/api/turnos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ efectivo_inicial_pesos: parseFloat(efectivoInicial) || 0 }),
+    });
+    if (res.ok) {
+      const t: Turno = await res.json();
+      setTurno(t);
+    }
+    setAbriendo(false);
+  }
+
+  // ── Lógica del ticket ──
   const grupos = productos.reduce<Record<string, Producto[]>>((acc, p) => {
     const cat = p.categoria_nombre ?? "Sin categoría";
     if (!acc[cat]) acc[cat] = [];
@@ -56,7 +98,10 @@ export default function PosPage() {
           i.producto_id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i
         );
       }
-      return [...prev, { producto_id: p.id, nombre: p.nombre, precio_unitario: p.precio, cantidad: 1 }];
+      return [
+        ...prev,
+        { producto_id: p.id, nombre: p.nombre, precio_unitario: p.precio, cantidad: 1 },
+      ];
     });
   }
 
@@ -78,12 +123,14 @@ export default function PosPage() {
     setPropinaPct(0);
   }
 
-  const subtotalCentavos = ticket.reduce((s, i) => s + i.precio_unitario * i.cantidad, 0);
+  const subtotalCentavos = ticket.reduce(
+    (s, i) => s + i.precio_unitario * i.cantidad,
+    0
+  );
 
   function aplicarPropinaPct(pct: number) {
     setPropinaPct(pct);
-    const monto = (subtotalCentavos * pct) / 100 / 100; // centavos → pesos
-    setPropinaPesos(monto.toFixed(2));
+    setPropinaPesos(((subtotalCentavos * pct) / 100 / 100).toFixed(2));
   }
 
   function handlePropinaPesosChange(val: string) {
@@ -104,6 +151,7 @@ export default function PosPage() {
           items: ticket.map((i) => ({ producto_id: i.producto_id, cantidad: i.cantidad })),
           propina_pesos: parseFloat(propinaPesos) || 0,
           metodo_pago,
+          turno_id: turno?.id ?? null,
         }),
       });
 
@@ -124,32 +172,55 @@ export default function PosPage() {
 
   const ticketVacio = ticket.length === 0;
 
+  // ── Loading ──
+  if (loadingTurno) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-100">
+        <p className="text-gray-400 text-lg">Verificando turno…</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-full bg-gray-100 overflow-hidden">
       {/* ── Panel izquierdo: productos (65%) ── */}
       <div className="flex-[65] flex flex-col overflow-hidden">
-        <header className="bg-white border-b px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">Cafetería POS</h1>
-          <a
-            href="/admin/productos"
-            className="text-sm text-amber-600 hover:underline font-medium"
-          >
-            Administrar productos
-          </a>
+        {/* Header con info de turno */}
+        <header className="bg-white border-b px-4 py-2 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold text-gray-800">Caja</h1>
+            {turno && (
+              <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                Turno desde las {formatHora(turno.fecha_apertura)}
+              </span>
+            )}
+          </div>
+          {turno && (
+            <button
+              onClick={() => router.push("/corte/turno")}
+              className="text-sm text-red-500 hover:text-red-700 font-medium border border-red-200 hover:border-red-400 px-3 rounded-lg min-h-[36px] transition-colors"
+            >
+              Cerrar turno
+            </button>
+          )}
         </header>
 
+        {/* Grid de productos */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {Object.keys(grupos).length === 0 && (
             <div className="text-center text-gray-400 mt-20">
               <p className="text-xl">Sin productos disponibles</p>
-              <a href="/admin/productos" className="text-amber-500 underline mt-2 inline-block">
+              <a
+                href="/admin/productos"
+                className="text-amber-500 underline mt-2 inline-block"
+              >
                 Agregar productos
               </a>
             </div>
           )}
           {Object.entries(grupos).map(([cat, prods]) => (
             <section key={cat}>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">
                 {cat}
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -159,8 +230,12 @@ export default function PosPage() {
                     onClick={() => agregarAlTicket(p)}
                     className="bg-white rounded-xl shadow hover:shadow-md active:scale-95 transition-all p-3 text-left flex flex-col justify-between min-h-[80px]"
                   >
-                    <span className="font-semibold text-gray-800 leading-tight">{p.nombre}</span>
-                    <span className="text-amber-600 font-bold mt-1">{formatMXN(p.precio)}</span>
+                    <span className="font-semibold text-gray-800 leading-tight text-sm">
+                      {p.nombre}
+                    </span>
+                    <span className="text-amber-600 font-bold mt-1">
+                      {formatMXN(p.precio)}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -183,18 +258,22 @@ export default function PosPage() {
           )}
         </div>
 
-        {/* Items del ticket */}
+        {/* Items */}
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
           {ticketVacio && (
-            <p className="text-gray-400 text-center mt-10">Toca un producto para agregarlo</p>
+            <p className="text-gray-400 text-center mt-10 text-sm">
+              Toca un producto para agregarlo
+            </p>
           )}
           {ticket.map((item) => (
-            <div key={item.producto_id} className="flex items-center gap-2 py-2 border-b last:border-0">
+            <div
+              key={item.producto_id}
+              className="flex items-center gap-2 py-2 border-b last:border-0"
+            >
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-800 text-sm truncate">{item.nombre}</p>
                 <p className="text-xs text-gray-500">{formatMXN(item.precio_unitario)} c/u</p>
               </div>
-              {/* Controles de cantidad */}
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => cambiarCantidad(item.producto_id, -1)}
@@ -210,11 +289,9 @@ export default function PosPage() {
                   +
                 </button>
               </div>
-              {/* Subtotal del item */}
               <span className="text-sm font-semibold text-gray-700 w-16 text-right">
                 {formatMXN(item.precio_unitario * item.cantidad)}
               </span>
-              {/* Eliminar */}
               <button
                 onClick={() => eliminarItem(item.producto_id)}
                 className="text-gray-300 hover:text-red-500 transition-colors ml-1"
@@ -226,14 +303,13 @@ export default function PosPage() {
           ))}
         </div>
 
-        {/* Totales y propina */}
+        {/* Totales */}
         <div className="px-4 py-3 border-t space-y-3 bg-gray-50">
           <div className="flex justify-between text-sm text-gray-600">
             <span>Subtotal</span>
             <span className="font-medium">{formatMXN(subtotalCentavos)}</span>
           </div>
 
-          {/* Propina */}
           <div className="space-y-2">
             <p className="text-sm text-gray-600 font-medium">Propina</p>
             <div className="flex gap-1">
@@ -279,13 +355,55 @@ export default function PosPage() {
         </div>
       </div>
 
-      {/* ── Modal: elegir método de pago ── */}
+      {/* ── Modal: abrir turno (bloquea el POS si no hay turno) ── */}
+      {!turno && !loadingTurno && (
+        <div className="fixed inset-0 bg-gray-900/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="px-6 pt-8 pb-4 text-center">
+              <div className="text-5xl mb-3">☕</div>
+              <h2 className="text-2xl font-bold text-gray-800">Abrir turno</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                Ingresa el efectivo inicial en caja para comenzar
+              </p>
+            </div>
+            <form onSubmit={abrirTurno} className="px-6 pb-8 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Efectivo inicial (pesos)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={efectivoInicial}
+                  onChange={(e) => setEfectivoInicial(e.target.value)}
+                  className="w-full border rounded-xl px-4 py-3 text-2xl font-bold text-center text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  autoFocus
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={abriendo}
+                className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-xl rounded-xl min-h-[60px] transition-colors"
+              >
+                {abriendo ? "Abriendo…" : "Abrir caja"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: método de pago ── */}
       {modal === "pago" && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="px-6 pt-6 pb-4">
-              <h3 className="text-2xl font-bold text-gray-800 text-center mb-1">Método de pago</h3>
-              <p className="text-center text-3xl font-bold text-green-600">{formatMXN(totalCentavos)}</p>
+              <h3 className="text-2xl font-bold text-gray-800 text-center mb-1">
+                Método de pago
+              </h3>
+              <p className="text-center text-3xl font-bold text-green-600">
+                {formatMXN(totalCentavos)}
+              </p>
             </div>
             <div className="px-6 pb-6 grid grid-cols-2 gap-4">
               <button

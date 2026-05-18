@@ -10,7 +10,7 @@ type ItemInput = {
 export async function POST(request: Request) {
   const db = getDb();
   const body = await request.json();
-  const { items, propina_pesos = 0, metodo_pago } = body;
+  const { items, propina_pesos = 0, metodo_pago, turno_id = null } = body;
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "La orden debe tener al menos un ítem" }, { status: 400 });
@@ -53,8 +53,7 @@ export async function POST(request: Request) {
   }
 
   const subtotal = (items as ItemInput[]).reduce((acc, item) => {
-    const precio = precioMap.get(item.producto_id)!.precio;
-    return acc + precio * item.cantidad;
+    return acc + precioMap.get(item.producto_id)!.precio * item.cantidad;
   }, 0);
 
   const propina = pesosToCentavos(propina_pesos);
@@ -63,9 +62,9 @@ export async function POST(request: Request) {
   const crearOrden = db.transaction(() => {
     const ordenResult = db
       .prepare(
-        "INSERT INTO ordenes (total, propina, metodo_pago) VALUES (?, ?, ?)"
+        "INSERT INTO ordenes (total, propina, metodo_pago, turno_id) VALUES (?, ?, ?, ?)"
       )
-      .run(total, propina, metodo_pago);
+      .run(total, propina, metodo_pago, turno_id);
 
     const ordenId = ordenResult.lastInsertRowid;
 
