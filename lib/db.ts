@@ -26,7 +26,7 @@ function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS productos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL,
-      precio INTEGER NOT NULL,  -- en centavos MXN
+      precio INTEGER NOT NULL,
       categoria_id INTEGER REFERENCES categorias(id),
       disponible INTEGER NOT NULL DEFAULT 1,
       imagen_url TEXT
@@ -34,8 +34,10 @@ function initSchema(db: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS ordenes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      total INTEGER NOT NULL,   -- en centavos MXN
-      estado TEXT NOT NULL DEFAULT 'abierta',
+      total INTEGER NOT NULL,
+      propina INTEGER NOT NULL DEFAULT 0,
+      metodo_pago TEXT NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'pagada',
       creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
     );
 
@@ -44,7 +46,7 @@ function initSchema(db: Database.Database) {
       orden_id INTEGER NOT NULL REFERENCES ordenes(id),
       producto_id INTEGER NOT NULL REFERENCES productos(id),
       cantidad INTEGER NOT NULL DEFAULT 1,
-      precio_unitario INTEGER NOT NULL  -- en centavos MXN al momento de la venta
+      precio_unitario INTEGER NOT NULL
     );
   `);
 }
