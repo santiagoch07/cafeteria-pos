@@ -2,38 +2,105 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { Menu, X } from "lucide-react";
 
 const LINKS = [
-  { href: "/pos", label: "Caja" },
-  { href: "/admin/productos", label: "Productos" },
-  { href: "/corte", label: "Corte del día" },
+  { href: "/pos",              label: "Caja" },
+  { href: "/admin/productos",  label: "Productos" },
+  { href: "/corte",            label: "Corte" },
 ];
+
+function NavLink({ href, label, active, onClick }: { href: string; label: string; active: boolean; onClick?: () => void }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`relative text-sm transition-colors duration-150 px-1 pb-0.5 ${
+        active
+          ? "text-text-strong font-medium"
+          : "text-muted hover:text-text"
+      }`}
+    >
+      {label}
+      {active && (
+        <span className="absolute -bottom-[17px] left-0 right-0 h-0.5 bg-accent rounded-full" />
+      )}
+    </Link>
+  );
+}
 
 export default function NavBar() {
   const pathname = usePathname();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  function isActive(href: string) {
+    return href === "/pos" ? pathname === "/pos" : pathname.startsWith(href);
+  }
 
   return (
-    <nav className="h-12 bg-gray-900 text-white flex items-center px-4 gap-1 shrink-0">
-      <span className="font-bold text-amber-400 mr-4 text-sm tracking-wide">☕ Cafetería</span>
-      {LINKS.map(({ href, label }) => {
-        const active =
-          href === "/pos"
-            ? pathname === "/pos"
-            : pathname.startsWith(href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              active
-                ? "bg-amber-500 text-white"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
-            }`}
-          >
-            {label}
-          </Link>
-        );
-      })}
-    </nav>
+    <>
+      <nav className="h-12 bg-bg border-b border-border flex items-center px-4 sm:px-6 gap-6 shrink-0 sticky top-0 z-40">
+        {/* Logo */}
+        <Link href="/" className="text-xl font-semibold text-text-strong shrink-0">
+          Cafetería<span className="text-accent">.</span>
+        </Link>
+
+        {/* Desktop links */}
+        <div className="hidden sm:flex items-center gap-6 h-full">
+          {LINKS.map(({ href, label }) => (
+            <NavLink key={href} href={href} label={label} active={isActive(href)} />
+          ))}
+        </div>
+
+        {/* Mobile hamburger */}
+        <button
+          className="sm:hidden ml-auto text-muted hover:text-text transition-colors"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Abrir menú"
+        >
+          <Menu size={20} />
+        </button>
+      </nav>
+
+      {/* Mobile drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 sm:hidden">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div className="absolute right-0 top-0 h-full w-64 bg-surface border-l border-border flex flex-col">
+            <div className="flex items-center justify-between px-5 h-14 border-b border-border">
+              <span className="text-base font-semibold text-text-strong">
+                Cafetería<span className="text-accent">.</span>
+              </span>
+              <button
+                onClick={() => setDrawerOpen(false)}
+                className="text-muted hover:text-text transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1 p-3">
+              {LINKS.map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setDrawerOpen(false)}
+                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    isActive(href)
+                      ? "bg-accent text-black"
+                      : "text-muted hover:text-text hover:bg-surface-2"
+                  }`}
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -1,14 +1,39 @@
+import Link from "next/link";
+import Button from "@/components/ui/Button";
+
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8">
-      <h1 className="text-4xl font-bold text-gray-800">Cafetería POS</h1>
-      <p className="text-gray-500 text-lg">Sistema de punto de venta</p>
-      <a
-        href="/pos"
-        className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-4 rounded-xl text-xl min-h-[60px] flex items-center transition-colors"
-      >
-        Abrir caja
-      </a>
+    <div className="h-full flex items-center justify-center px-6">
+      <div className="w-full max-w-2xl space-y-10">
+        {/* Logo */}
+        <p className="text-xl font-semibold text-text-strong">
+          Cafetería<span className="text-accent">.</span>
+        </p>
+
+        {/* Hero */}
+        <div className="border-l-4 border-accent pl-6 space-y-4">
+          <h1 className="text-6xl font-semibold text-text-strong leading-[1.05] text-balance">
+            Tu cafetería,<br />en orden.
+          </h1>
+          <p className="text-lg text-muted max-w-md text-balance">
+            Punto de venta y control financiero para negocios que les gusta saber cómo van.
+          </p>
+        </div>
+
+        {/* CTAs */}
+        <div className="flex flex-wrap items-center gap-4">
+          <Link href="/pos">
+            <Button variant="primary" size="xl">
+              Abrir caja
+            </Button>
+          </Link>
+          <Link href="/corte">
+            <Button variant="ghost" size="lg">
+              Ver corte del día
+            </Button>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

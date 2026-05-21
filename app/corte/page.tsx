@@ -2,62 +2,28 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { CalendarDays } from "lucide-react";
 import { formatMXN, formatFechaEspanol, formatHora } from "@/lib/format";
+import StatCard from "@/components/ui/StatCard";
+import Spinner from "@/components/ui/Spinner";
 
-const VentasPorHoraChart = dynamic(
-  () => import("@/components/VentasPorHoraChart"),
-  { ssr: false }
-);
+const VentasPorHoraChart = dynamic(() => import("@/components/VentasPorHoraChart"), { ssr: false });
 
-type KPIs = {
-  total: number;
-  tickets: number;
-  ticket_promedio: number;
-  propinas: number;
-};
-
-type Comparativo = {
-  total_pct: number | null;
-  tickets_pct: number | null;
-};
-
-type MetodoRow = {
-  metodo_pago: string;
-  tickets: number;
-  total: number;
-  propinas: number;
-};
-
-type ProductoRow = {
-  nombre: string;
-  cantidad: number;
-  total: number;
-};
-
+type KPIs = { total: number; tickets: number; ticket_promedio: number; propinas: number };
+type Comparativo = { total_pct: number | null; tickets_pct: number | null };
+type MetodoRow = { metodo_pago: string; tickets: number; total: number; propinas: number };
+type ProductoRow = { nombre: string; cantidad: number; total: number };
 type HoraRow = { hora: string; tickets: number; total: number };
-
 type TurnoRow = {
-  id: number;
-  fecha_apertura: string;
-  fecha_cierre: string | null;
-  efectivo_inicial: number;
-  efectivo_final_sistema: number | null;
-  efectivo_final_real: number | null;
-  diferencia: number | null;
-  notas: string | null;
-  estado: string;
+  id: number; fecha_apertura: string; fecha_cierre: string | null;
+  efectivo_final_sistema: number | null; efectivo_final_real: number | null;
+  diferencia: number | null; estado: string;
 };
-
 type ReporteData = {
-  fecha: string;
-  fecha_display: string;
-  kpis: KPIs;
-  comparativo_ayer: Comparativo;
-  comparativo_semana: Comparativo;
-  por_metodo: MetodoRow[];
-  top_productos: ProductoRow[];
-  ventas_por_hora: HoraRow[];
-  turnos_dia: TurnoRow[];
+  fecha: string; fecha_display: string;
+  kpis: KPIs; comparativo_ayer: Comparativo; comparativo_semana: Comparativo;
+  por_metodo: MetodoRow[]; top_productos: ProductoRow[];
+  ventas_por_hora: HoraRow[]; turnos_dia: TurnoRow[];
 };
 
 function hoy(): string {
@@ -65,20 +31,9 @@ function hoy(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function PctBadge({ pct, label }: { pct: number | null; label: string }) {
-  if (pct === null) return <span className="text-gray-400 text-xs">{label}: —</span>;
-  const color = pct > 0 ? "text-green-600" : pct < 0 ? "text-red-500" : "text-gray-500";
-  const sign = pct > 0 ? "+" : "";
-  return (
-    <span className={`text-xs ${color}`}>
-      {label}: {sign}{pct}%
-    </span>
-  );
-}
-
 export default function CortePage() {
   const [fecha, setFecha] = useState(hoy());
-  const [data, setData] = useState<ReporteData | null>(null);
+  const [data, setData]   = useState<ReporteData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,243 +44,177 @@ export default function CortePage() {
       .finally(() => setLoading(false));
   }, [fecha]);
 
-  const totalPorMetodo = data?.por_metodo.reduce((s, r) => s + r.total, 0) ?? 0;
+  const totalMetodo = data?.por_metodo.reduce((s, r) => s + r.total, 0) ?? 0;
+  const efectivoTotal = data?.por_metodo.find((r) => r.metodo_pago === "efectivo")?.total ?? 0;
+  const tarjetaTotal  = data?.por_metodo.find((r) => r.metodo_pago === "tarjeta")?.total ?? 0;
+  const efectivoPct   = totalMetodo > 0 ? Math.round((efectivoTotal / totalMetodo) * 100) : 0;
+  const tarjetaPct    = 100 - efectivoPct;
+  const topMax        = data?.top_productos[0]?.total ?? 1;
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-50">
-      <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6 pb-16">
+    <div className="h-full overflow-y-auto bg-bg">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6 pb-16">
+
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 capitalize">
+            <h1 className="text-3xl font-semibold text-text-strong capitalize">
               {data ? data.fecha_display : "Cargando…"}
             </h1>
-            <p className="text-sm text-gray-400">Resumen del día</p>
+            <p className="text-sm text-muted mt-0.5">Resumen del día</p>
           </div>
-          <input
-            type="date"
-            value={fecha}
-            max={hoy()}
-            onChange={(e) => setFecha(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
-          />
+          <label className="flex items-center gap-2 cursor-pointer border border-border rounded-lg px-3 h-10 text-sm text-muted hover:border-border-hi transition-colors">
+            <CalendarDays size={16} />
+            <input
+              type="date"
+              value={fecha}
+              max={hoy()}
+              onChange={(e) => setFecha(e.target.value)}
+              className="bg-transparent text-muted text-sm focus:outline-none cursor-pointer"
+            />
+          </label>
         </div>
 
-        {loading && (
-          <div className="text-center py-20 text-gray-400">Cargando reporte…</div>
-        )}
+        {loading && <div className="flex justify-center py-20"><Spinner size={28} /></div>}
 
         {!loading && data && (
           <>
             {/* KPIs 2×2 */}
             <div className="grid grid-cols-2 gap-4">
-              <KpiCard
+              <StatCard
                 label="Ventas del día"
                 value={formatMXN(data.kpis.total)}
+                hero
                 ayerPct={data.comparativo_ayer.total_pct}
                 semanaPct={data.comparativo_semana.total_pct}
-                big
               />
-              <KpiCard
+              <StatCard
                 label="Tickets"
                 value={String(data.kpis.tickets)}
                 ayerPct={data.comparativo_ayer.tickets_pct}
                 semanaPct={data.comparativo_semana.tickets_pct}
               />
-              <KpiCard
-                label="Ticket promedio"
-                value={formatMXN(data.kpis.ticket_promedio)}
-              />
-              <KpiCard
-                label="Propinas"
-                value={formatMXN(data.kpis.propinas)}
-              />
+              <StatCard label="Ticket promedio" value={formatMXN(data.kpis.ticket_promedio)} />
+              <StatCard label="Propinas" value={formatMXN(data.kpis.propinas)} />
             </div>
 
             {/* Métodos de pago */}
             {data.por_metodo.length > 0 && (
-              <div className="bg-white rounded-xl shadow p-5">
-                <h2 className="font-semibold text-gray-700 mb-4">Métodos de pago</h2>
-                <div className="space-y-3">
-                  {data.por_metodo.map((m) => {
-                    const pct = totalPorMetodo > 0
-                      ? Math.round((m.total / totalPorMetodo) * 100)
-                      : 0;
-                    const isEfectivo = m.metodo_pago === "efectivo";
-                    return (
-                      <div key={m.metodo_pago}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium text-gray-700 flex items-center gap-1">
-                            {isEfectivo ? "💵" : "💳"}{" "}
-                            {isEfectivo ? "Efectivo" : "Tarjeta"}
-                            <span className="text-gray-400 font-normal ml-1">
-                              ({m.tickets} tickets)
-                            </span>
-                          </span>
-                          <span className="font-bold text-gray-800">{formatMXN(m.total)}</span>
-                        </div>
-                        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${isEfectivo ? "bg-blue-400" : "bg-purple-400"}`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{pct}% del total</p>
-                      </div>
-                    );
-                  })}
+              <div className="bg-surface border border-border rounded-xl p-5 space-y-4">
+                <p className="text-xs text-muted uppercase tracking-widest">Métodos de pago</p>
+                {/* Barra apilada */}
+                <div className="h-3 rounded-full overflow-hidden flex bg-surface-2">
+                  {efectivoPct > 0 && (
+                    <div className="h-full bg-text-strong transition-all" style={{ width: `${efectivoPct}%` }} />
+                  )}
+                  {tarjetaPct > 0 && (
+                    <div className="h-full bg-accent transition-all" style={{ width: `${tarjetaPct}%` }} />
+                  )}
+                </div>
+                {/* Leyenda */}
+                <div className="flex gap-5 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-sm bg-text-strong shrink-0" />
+                    <span className="text-sm text-muted">
+                      Efectivo <span className="text-text font-medium">{formatMXN(efectivoTotal)}</span>
+                      <span className="text-muted"> ({efectivoPct}%)</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-sm bg-accent shrink-0" />
+                    <span className="text-sm text-muted">
+                      Tarjeta <span className="text-text font-medium">{formatMXN(tarjetaTotal)}</span>
+                      <span className="text-muted"> ({tarjetaPct}%)</span>
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Ventas por hora */}
-            <div className="bg-white rounded-xl shadow p-5">
-              <h2 className="font-semibold text-gray-700 mb-4">Ventas por hora</h2>
+            <div className="bg-surface border border-border rounded-xl p-5">
+              <p className="text-xs text-muted uppercase tracking-widest mb-4">Ventas por hora</p>
               {data.ventas_por_hora.every((h) => h.total === 0) ? (
-                <p className="text-gray-400 text-sm text-center py-8">Sin ventas registradas</p>
+                <p className="text-muted text-sm text-center py-8">Sin ventas este día</p>
               ) : (
-                <VentasPorHoraChart data={data.ventas_por_hora} formatMXN={formatMXN} />
+                <VentasPorHoraChart data={data.ventas_por_hora} />
               )}
             </div>
 
-            {/* Top 5 productos */}
+            {/* Top productos */}
             {data.top_productos.length > 0 && (
-              <div className="bg-white rounded-xl shadow p-5">
-                <h2 className="font-semibold text-gray-700 mb-3">Top productos</h2>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-gray-400 text-xs uppercase border-b">
-                      <th className="pb-2 text-left font-medium">#</th>
-                      <th className="pb-2 text-left font-medium">Producto</th>
-                      <th className="pb-2 text-right font-medium">Pzas</th>
-                      <th className="pb-2 text-right font-medium">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.top_productos.map((p, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="py-2 text-gray-400 font-medium w-6">{i + 1}</td>
-                        <td className="py-2 font-medium text-gray-800">{p.nombre}</td>
-                        <td className="py-2 text-right text-gray-600">{p.cantidad}</td>
-                        <td className="py-2 text-right font-bold text-gray-800">
-                          {formatMXN(p.total)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="bg-surface border border-border rounded-xl p-5 space-y-3">
+                <p className="text-xs text-muted uppercase tracking-widest">Top productos</p>
+                <div className="space-y-3">
+                  {data.top_productos.map((p, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium shrink-0 ${i === 0 ? "bg-accent text-black" : "bg-surface-2 text-muted"}`}>
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 text-sm font-medium text-text">{p.nombre}</span>
+                        <span className="text-sm text-muted shrink-0">{p.cantidad}×</span>
+                        <span className="text-sm font-semibold text-text-strong shrink-0 w-20 text-right">{formatMXN(p.total)}</span>
+                      </div>
+                      <div className="ml-9 h-1 rounded-full bg-surface-2 overflow-hidden">
+                        <div
+                          className="h-full bg-accent rounded-full"
+                          style={{ width: `${Math.round((p.total / topMax) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             {/* Turnos del día */}
             {data.turnos_dia.length > 0 && (
-              <div className="bg-white rounded-xl shadow p-5">
-                <h2 className="font-semibold text-gray-700 mb-3">Turnos del día</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-gray-400 text-xs uppercase border-b">
-                        <th className="pb-2 text-left font-medium">Apertura</th>
-                        <th className="pb-2 text-left font-medium">Cierre</th>
-                        <th className="pb-2 text-right font-medium">Estado</th>
-                        <th className="pb-2 text-right font-medium">Diferencia</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.turnos_dia.map((t) => {
-                        const dif = t.diferencia;
-                        const difColor =
-                          dif === null
-                            ? "text-gray-400"
-                            : dif > 0
-                            ? "text-green-600"
-                            : dif < 0
-                            ? "text-red-500"
-                            : "text-gray-500";
-                        return (
-                          <tr key={t.id} className="border-b last:border-0">
-                            <td className="py-2 text-gray-700">
-                              {formatHora(t.fecha_apertura)}
-                            </td>
-                            <td className="py-2 text-gray-700">
-                              {t.fecha_cierre ? formatHora(t.fecha_cierre) : "—"}
-                            </td>
-                            <td className="py-2 text-right">
-                              <span
-                                className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                  t.estado === "abierto"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-gray-100 text-gray-600"
-                                }`}
-                              >
-                                {t.estado === "abierto" ? "Abierto" : "Cerrado"}
-                              </span>
-                            </td>
-                            <td className={`py-2 text-right font-bold ${difColor}`}>
-                              {dif === null
-                                ? "—"
-                                : dif === 0
-                                ? "Cuadró"
-                                : dif > 0
-                                ? `+${formatMXN(dif)}`
-                                : `-${formatMXN(Math.abs(dif))}`}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+              <div className="bg-surface border border-border rounded-xl overflow-hidden">
+                <div className="px-5 py-3 border-b border-border">
+                  <p className="text-xs text-muted uppercase tracking-widest">Turnos del día</p>
                 </div>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      {["Apertura", "Cierre", "Estado", "Diferencia"].map((h) => (
+                        <th key={h} className="px-4 py-2 text-left text-xs text-muted uppercase tracking-widest font-medium">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.turnos_dia.map((t) => {
+                      const dif = t.diferencia;
+                      return (
+                        <tr key={t.id} className="border-b border-border last:border-0 hover:bg-surface-2 transition-colors">
+                          <td className="px-4 py-3 text-sm text-text">{formatHora(t.fecha_apertura)}</td>
+                          <td className="px-4 py-3 text-sm text-text">{t.fecha_cierre ? formatHora(t.fecha_cierre) : "—"}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${t.estado === "abierto" ? "bg-success/20 text-success" : "bg-surface-2 text-muted"}`}>
+                              {t.estado === "abierto" ? "Abierto" : "Cerrado"}
+                            </span>
+                          </td>
+                          <td className={`px-4 py-3 text-sm font-semibold ${dif === null ? "text-muted" : dif > 0 ? "text-success" : dif < 0 ? "text-error" : "text-muted"}`}>
+                            {dif === null ? "—" : dif === 0 ? "Cuadró" : dif > 0 ? `+${formatMXN(dif)}` : `-${formatMXN(Math.abs(dif))}`}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
 
             {/* Sin datos */}
             {data.kpis.tickets === 0 && data.turnos_dia.length === 0 && (
-              <div className="text-center py-10 text-gray-400">
+              <div className="text-center py-16 text-muted space-y-2">
                 <p className="text-xl">Sin ventas este día</p>
-                <p className="text-sm mt-1">
-                  {fecha === hoy()
-                    ? "Las ventas de hoy aparecerán aquí en tiempo real"
-                    : formatFechaEspanol(fecha)}
-                </p>
+                {fecha === hoy() && <p className="text-sm">Las ventas de hoy aparecerán aquí en tiempo real.</p>}
               </div>
             )}
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  ayerPct,
-  semanaPct,
-  big,
-}: {
-  label: string;
-  value: string;
-  ayerPct?: number | null;
-  semanaPct?: number | null;
-  big?: boolean;
-}) {
-  return (
-    <div className="bg-white rounded-xl shadow p-4">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className={`font-bold text-gray-800 mt-1 ${big ? "text-3xl" : "text-2xl"}`}>
-        {value}
-      </p>
-      {(ayerPct !== undefined || semanaPct !== undefined) && (
-        <div className="flex flex-col gap-0.5 mt-2">
-          {ayerPct !== undefined && (
-            <PctBadge pct={ayerPct ?? null} label="vs ayer" />
-          )}
-          {semanaPct !== undefined && (
-            <PctBadge pct={semanaPct ?? null} label="vs sem. ant." />
-          )}
-        </div>
-      )}
     </div>
   );
 }

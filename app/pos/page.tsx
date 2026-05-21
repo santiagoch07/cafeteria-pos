@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Minus, Plus, Trash2, Banknote, CreditCard, CheckCircle2 } from "lucide-react";
 import { formatMXN, formatHora, pesosToCentavos } from "@/lib/format";
+import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
+import Modal from "@/components/ui/Modal";
+import Spinner from "@/components/ui/Spinner";
 
 type Producto = {
   id: number;
@@ -20,40 +25,42 @@ type TicketItem = {
   cantidad: number;
 };
 
-type Turno = {
-  id: number;
-  fecha_apertura: string;
-  efectivo_inicial: number;
-  estado: string;
-};
+type Turno = { id: number; fecha_apertura: string; efectivo_inicial: number; estado: string };
 
-type ModalEstado = "cerrado" | "pago" | "confirmacion";
-
-const PROPINA_PORCENTAJES = [0, 10, 15, 20];
+const PROPINA_PCTS = [0, 10, 15, 20];
 
 export default function PosPage() {
   const router = useRouter();
 
-  // ── Turno ──
-  const [turno, setTurno] = useState<Turno | null>(null);
+  // ── Turno ──────────────────────────────────────
+  const [turno, setTurno]             = useState<Turno | null>(null);
   const [loadingTurno, setLoadingTurno] = useState(true);
+  const [turnoModal, setTurnoModal]   = useState(false);
   const [efectivoInicial, setEfectivoInicial] = useState("0");
-  const [abriendo, setAbriendo] = useState(false);
+  const [abriendo, setAbriendo]       = useState(false);
 
-  // ── Productos y ticket ──
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [ticket, setTicket] = useState<TicketItem[]>([]);
-  const [propinaPesos, setPropinaPesos] = useState<string>("0");
-  const [propinaPct, setPropinaPct] = useState<number>(0);
-  const [modal, setModal] = useState<ModalEstado>("cerrado");
-  const [confirmMsg, setConfirmMsg] = useState("");
-  const [cobrando, setCobrando] = useState(false);
+  // ── Productos ───────────────────────────────────
+  const [productos, setProductos]     = useState<Producto[]>([]);
+  const [categoriaActiva, setCategoriaActiva] = useState<string>("Todos");
 
-  // Verificar turno abierto al cargar
+  // ── Ticket ──────────────────────────────────────
+  const [ticket, setTicket]           = useState<TicketItem[]>([]);
+  const [propinaPesos, setPropinaPesos] = useState("0");
+  const [propinaPct, setPropinaPct]   = useState(0);
+
+  // ── Modales ─────────────────────────────────────
+  const [pagoModal, setPagoModal]     = useState(false);
+  const [cobrando, setCobrando]       = useState(false);
+  const [toast, setToast]             = useState<string | null>(null);
+
+  // ── Turno: check al montar ───────────────────────
   useEffect(() => {
     fetch("/api/turnos/abierto")
       .then((r) => r.json())
-      .then((t) => setTurno(t))
+      .then((t) => {
+        setTurno(t);
+        if (!t) setTurnoModal(true);
+      })
       .finally(() => setLoadingTurno(false));
   }, []);
 
@@ -63,9 +70,7 @@ export default function PosPage() {
     setProductos(data.filter((p) => p.disponible === 1));
   }, []);
 
-  useEffect(() => {
-    if (turno) fetchProductos();
-  }, [turno, fetchProductos]);
+  useEffect(() => { if (turno) fetchProductos(); }, [turno, fetchProductos]);
 
   async function abrirTurno(e: React.FormEvent) {
     e.preventDefault();
@@ -76,70 +81,51 @@ export default function PosPage() {
       body: JSON.stringify({ efectivo_inicial_pesos: parseFloat(efectivoInicial) || 0 }),
     });
     if (res.ok) {
-      const t: Turno = await res.json();
-      setTurno(t);
+      setTurno(await res.json());
+      setTurnoModal(false);
     }
     setAbriendo(false);
   }
 
-  // ── Lógica del ticket ──
-  const grupos = productos.reduce<Record<string, Producto[]>>((acc, p) => {
-    const cat = p.categoria_nombre ?? "Sin categoría";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(p);
-    return acc;
-  }, {});
+  // ── Categorías ──────────────────────────────────
+  const categorias = ["Todos", ...Array.from(new Set(productos.map((p) => p.categoria_nombre ?? "Sin categoría")))];
+  const productosFiltrados = categoriaActiva === "Todos"
+    ? productos
+    : productos.filter((p) => (p.categoria_nombre ?? "Sin categoría") === categoriaActiva);
 
-  function agregarAlTicket(p: Producto) {
+  // ── Ticket helpers ──────────────────────────────
+  function agregar(p: Producto) {
     setTicket((prev) => {
-      const existente = prev.find((i) => i.producto_id === p.id);
-      if (existente) {
-        return prev.map((i) =>
-          i.producto_id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i
-        );
-      }
-      return [
-        ...prev,
-        { producto_id: p.id, nombre: p.nombre, precio_unitario: p.precio, cantidad: 1 },
-      ];
+      const ex = prev.find((i) => i.producto_id === p.id);
+      if (ex) return prev.map((i) => i.producto_id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i);
+      return [...prev, { producto_id: p.id, nombre: p.nombre, precio_unitario: p.precio, cantidad: 1 }];
     });
   }
 
-  function cambiarCantidad(producto_id: number, delta: number) {
+  function cambiarCantidad(id: number, delta: number) {
     setTicket((prev) =>
-      prev
-        .map((i) => (i.producto_id === producto_id ? { ...i, cantidad: i.cantidad + delta } : i))
-        .filter((i) => i.cantidad > 0)
+      prev.map((i) => i.producto_id === id ? { ...i, cantidad: i.cantidad + delta } : i)
+          .filter((i) => i.cantidad > 0)
     );
   }
 
-  function eliminarItem(producto_id: number) {
-    setTicket((prev) => prev.filter((i) => i.producto_id !== producto_id));
+  function eliminar(id: number) {
+    setTicket((prev) => prev.filter((i) => i.producto_id !== id));
   }
 
-  function limpiarTicket() {
-    setTicket([]);
-    setPropinaPesos("0");
-    setPropinaPct(0);
+  function limpiar() {
+    setTicket([]); setPropinaPesos("0"); setPropinaPct(0);
   }
 
-  const subtotalCentavos = ticket.reduce(
-    (s, i) => s + i.precio_unitario * i.cantidad,
-    0
-  );
+  const subtotal = ticket.reduce((s, i) => s + i.precio_unitario * i.cantidad, 0);
 
-  function aplicarPropinaPct(pct: number) {
+  function setPct(pct: number) {
     setPropinaPct(pct);
-    setPropinaPesos(((subtotalCentavos * pct) / 100 / 100).toFixed(2));
-  }
-
-  function handlePropinaPesosChange(val: string) {
-    setPropinaPesos(val);
-    setPropinaPct(0);
+    setPropinaPesos(((subtotal * pct) / 100 / 100).toFixed(2));
   }
 
   const propinaCentavos = pesosToCentavos(parseFloat(propinaPesos) || 0);
-  const totalCentavos = subtotalCentavos + propinaCentavos;
+  const total = subtotal + propinaCentavos;
 
   async function cobrar(metodo_pago: "efectivo" | "tarjeta") {
     setCobrando(true);
@@ -154,302 +140,252 @@ export default function PosPage() {
           turno_id: turno?.id ?? null,
         }),
       });
-
-      if (!res.ok) {
-        const d = await res.json();
-        alert(d.error ?? "Error al registrar la venta");
-        return;
-      }
-
+      if (!res.ok) { const d = await res.json(); alert(d.error ?? "Error"); return; }
       const orden = await res.json();
-      setConfirmMsg(formatMXN(orden.total));
-      setModal("confirmacion");
-      limpiarTicket();
+      setPagoModal(false);
+      limpiar();
+      setToast(`Venta de ${formatMXN(orden.total)} registrada`);
+      setTimeout(() => setToast(null), 2000);
     } finally {
       setCobrando(false);
     }
   }
 
-  const ticketVacio = ticket.length === 0;
+  const vacio = ticket.length === 0;
+  const cantidadEnTicket = (id: number) => ticket.find((i) => i.producto_id === id)?.cantidad ?? 0;
 
-  // ── Loading ──
   if (loadingTurno) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-100">
-        <p className="text-gray-400 text-lg">Verificando turno…</p>
+      <div className="h-full flex items-center justify-center bg-bg">
+        <Spinner size={28} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full bg-gray-100 overflow-hidden">
-      {/* ── Panel izquierdo: productos (65%) ── */}
-      <div className="flex-[65] flex flex-col overflow-hidden">
-        {/* Header con info de turno */}
-        <header className="bg-white border-b px-4 py-2 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold text-gray-800">Caja</h1>
-            {turno && (
-              <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
-                Turno desde las {formatHora(turno.fecha_apertura)}
-              </span>
-            )}
-          </div>
+    <div className="flex h-full bg-bg overflow-hidden">
+
+      {/* ── Columna izquierda: productos 65% ─────── */}
+      <div className="flex-[65] flex flex-col overflow-hidden border-r border-border">
+
+        {/* Header del turno */}
+        <div className="flex items-center justify-between px-4 h-11 border-b border-border shrink-0">
+          {turno
+            ? <span className="text-xs text-muted">Turno desde las <span className="text-text">{formatHora(turno.fecha_apertura)}</span></span>
+            : <span className="text-xs text-muted">Sin turno activo</span>
+          }
           {turno && (
             <button
               onClick={() => router.push("/corte/turno")}
-              className="text-sm text-red-500 hover:text-red-700 font-medium border border-red-200 hover:border-red-400 px-3 rounded-lg min-h-[36px] transition-colors"
+              className="text-xs text-muted hover:text-error transition-colors"
             >
               Cerrar turno
             </button>
           )}
-        </header>
+        </div>
+
+        {/* Pills de categorías */}
+        <div className="flex gap-2 px-4 py-3 overflow-x-auto shrink-0 border-b border-border">
+          {categorias.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategoriaActiva(cat)}
+              className="shrink-0"
+            >
+              <Badge variant={categoriaActiva === cat ? "accent" : "default"}>
+                {cat}
+              </Badge>
+            </button>
+          ))}
+        </div>
 
         {/* Grid de productos */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {Object.keys(grupos).length === 0 && (
-            <div className="text-center text-gray-400 mt-20">
-              <p className="text-xl">Sin productos disponibles</p>
-              <a
-                href="/admin/productos"
-                className="text-amber-500 underline mt-2 inline-block"
-              >
-                Agregar productos
-              </a>
-            </div>
-          )}
-          {Object.entries(grupos).map(([cat, prods]) => (
-            <section key={cat}>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">
-                {cat}
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {prods.map((p) => (
+        <div className="flex-1 overflow-y-auto p-4">
+          {productosFiltrados.length === 0 ? (
+            <div className="text-center mt-20 text-muted">Sin productos en esta categoría</div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {productosFiltrados.map((p) => {
+                const qty = cantidadEnTicket(p.id);
+                return (
                   <button
                     key={p.id}
-                    onClick={() => agregarAlTicket(p)}
-                    className="bg-white rounded-xl shadow hover:shadow-md active:scale-95 transition-all p-3 text-left flex flex-col justify-between min-h-[80px]"
+                    onClick={() => agregar(p)}
+                    className={`relative bg-surface border rounded-xl p-4 text-left flex flex-col justify-between min-h-[80px] transition-all duration-150 hover:border-accent active:scale-[0.98] ${qty > 0 ? "border-accent" : "border-border"}`}
                   >
-                    <span className="font-semibold text-gray-800 leading-tight text-sm">
-                      {p.nombre}
-                    </span>
-                    <span className="text-amber-600 font-bold mt-1">
-                      {formatMXN(p.precio)}
-                    </span>
+                    {qty > 0 && (
+                      <span className="absolute top-2 right-2 bg-accent text-black text-xs font-medium px-1.5 py-0.5 rounded-full leading-none">
+                        ×{qty}
+                      </span>
+                    )}
+                    <span className="font-medium text-text text-sm leading-snug pr-6">{p.nombre}</span>
+                    <span className="font-semibold text-text-strong text-base mt-2">{formatMXN(p.precio)}</span>
                   </button>
-                ))}
-              </div>
-            </section>
-          ))}
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── Panel derecho: ticket (35%) ── */}
-      <div className="flex-[35] bg-white shadow-xl flex flex-col border-l min-w-[280px]">
-        <div className="px-4 py-3 border-b flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800">Ticket</h2>
-          {!ticketVacio && (
-            <button
-              onClick={limpiarTicket}
-              className="text-sm text-red-400 hover:text-red-600 font-medium"
-            >
+      {/* ── Columna derecha: ticket 35% ──────────── */}
+      <div className="flex-[35] bg-surface flex flex-col min-w-[280px]">
+
+        {/* Header ticket */}
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between shrink-0">
+          <p className="text-xs text-muted uppercase tracking-wider">Orden actual</p>
+          {!vacio && (
+            <button onClick={limpiar} className="text-xs text-muted hover:text-error transition-colors">
               Limpiar
             </button>
           )}
         </div>
 
         {/* Items */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-          {ticketVacio && (
-            <p className="text-gray-400 text-center mt-10 text-sm">
-              Toca un producto para agregarlo
-            </p>
-          )}
-          {ticket.map((item) => (
-            <div
-              key={item.producto_id}
-              className="flex items-center gap-2 py-2 border-b last:border-0"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-800 text-sm truncate">{item.nombre}</p>
-                <p className="text-xs text-gray-500">{formatMXN(item.precio_unitario)} c/u</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => cambiarCantidad(item.producto_id, -1)}
-                  className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 font-bold text-gray-600 flex items-center justify-center"
-                >
-                  −
-                </button>
-                <span className="w-6 text-center font-semibold text-sm">{item.cantidad}</span>
-                <button
-                  onClick={() => cambiarCantidad(item.producto_id, 1)}
-                  className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 font-bold text-gray-600 flex items-center justify-center"
-                >
-                  +
-                </button>
-              </div>
-              <span className="text-sm font-semibold text-gray-700 w-16 text-right">
-                {formatMXN(item.precio_unitario * item.cantidad)}
-              </span>
-              <button
-                onClick={() => eliminarItem(item.producto_id)}
-                className="text-gray-300 hover:text-red-500 transition-colors ml-1"
-                title="Eliminar"
-              >
-                🗑
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Totales */}
-        <div className="px-4 py-3 border-t space-y-3 bg-gray-50">
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Subtotal</span>
-            <span className="font-medium">{formatMXN(subtotalCentavos)}</span>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm text-gray-600 font-medium">Propina</p>
-            <div className="flex gap-1">
-              {PROPINA_PORCENTAJES.map((pct) => (
-                <button
-                  key={pct}
-                  onClick={() => aplicarPropinaPct(pct)}
-                  className={`flex-1 rounded-lg text-xs font-semibold py-2 transition-colors min-h-[36px] ${
-                    propinaPct === pct && pct > 0
-                      ? "bg-amber-500 text-white"
-                      : pct === 0 && propinaCentavos === 0
-                      ? "bg-amber-500 text-white"
-                      : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-                  }`}
-                >
-                  {pct === 0 ? "Sin" : `${pct}%`}
-                </button>
+        <div className="flex-1 overflow-y-auto px-4">
+          {vacio ? (
+            <p className="text-muted text-sm text-center mt-12">Toca un producto para agregarlo</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {ticket.map((item) => (
+                <div key={item.producto_id} className="flex items-center gap-3 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-medium text-text truncate">{item.nombre}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => cambiarCantidad(item.producto_id, -1)}
+                      className="w-7 h-7 rounded-full bg-bg flex items-center justify-center text-muted hover:text-text transition-colors"
+                    >
+                      <Minus size={12} />
+                    </button>
+                    <span className="w-5 text-center text-sm font-medium text-text">{item.cantidad}</span>
+                    <button
+                      onClick={() => cambiarCantidad(item.producto_id, 1)}
+                      className="w-7 h-7 rounded-full bg-bg flex items-center justify-center text-muted hover:text-text transition-colors"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+                  <span className="text-sm font-semibold text-text-strong w-16 text-right shrink-0">
+                    {formatMXN(item.precio_unitario * item.cantidad)}
+                  </span>
+                  <button
+                    onClick={() => eliminar(item.producto_id)}
+                    className="text-muted hover:text-error transition-colors shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Totales + cobrar */}
+        <div className="px-4 pb-4 pt-3 border-t border-border space-y-3 shrink-0">
+          {/* Subtotal */}
+          <div className="flex justify-between">
+            <span className="text-sm text-muted">Subtotal</span>
+            <span className="text-base text-text">{formatMXN(subtotal)}</span>
+          </div>
+
+          {/* Propina */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Propina</span>
+              <span className="text-base text-text">{formatMXN(propinaCentavos)}</span>
+            </div>
+            <div className="flex gap-1.5">
+              {PROPINA_PCTS.map((pct) => {
+                const active = pct === 0 ? propinaCentavos === 0 : propinaPct === pct;
+                return (
+                  <button
+                    key={pct}
+                    onClick={() => setPct(pct)}
+                    className={`flex-1 rounded-lg text-xs py-1.5 transition-colors ${active ? "bg-accent text-black font-medium" : "bg-bg text-muted hover:text-text"}`}
+                  >
+                    {pct === 0 ? "Sin" : `${pct}%`}
+                  </button>
+                );
+              })}
+            </div>
             <input
-              type="number"
-              min="0"
-              step="0.50"
+              type="number" min="0" step="0.50"
               value={propinaPesos}
-              onChange={(e) => handlePropinaPesosChange(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-              placeholder="Monto de propina en pesos"
+              onChange={(e) => { setPropinaPesos(e.target.value); setPropinaPct(0); }}
+              className="w-full h-9 rounded-lg border border-border bg-bg px-3 text-sm text-text placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
+              placeholder="Monto libre (pesos)"
             />
           </div>
 
-          <div className="flex justify-between text-xl font-bold text-gray-800 pt-1">
-            <span>Total</span>
-            <span>{formatMXN(totalCentavos)}</span>
+          {/* Total grande */}
+          <div>
+            <p className="text-xs text-muted uppercase tracking-wider mb-0.5">Total</p>
+            <p className="text-5xl font-semibold text-accent leading-none">{formatMXN(total)}</p>
           </div>
 
-          <button
-            onClick={() => setModal("pago")}
-            disabled={ticketVacio}
-            className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xl rounded-xl min-h-[60px] transition-colors"
+          <Button
+            variant="primary" size="xl"
+            className="w-full"
+            disabled={vacio}
+            onClick={() => setPagoModal(true)}
           >
-            Cobrar
-          </button>
+            {vacio ? "Cobrar" : `Cobrar ${formatMXN(total)}`}
+          </Button>
         </div>
       </div>
 
-      {/* ── Modal: abrir turno (bloquea el POS si no hay turno) ── */}
-      {!turno && !loadingTurno && (
-        <div className="fixed inset-0 bg-gray-900/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-            <div className="px-6 pt-8 pb-4 text-center">
-              <div className="text-5xl mb-3">☕</div>
-              <h2 className="text-2xl font-bold text-gray-800">Abrir turno</h2>
-              <p className="text-gray-500 text-sm mt-1">
-                Ingresa el efectivo inicial en caja para comenzar
-              </p>
-            </div>
-            <form onSubmit={abrirTurno} className="px-6 pb-8 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Efectivo inicial (pesos)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={efectivoInicial}
-                  onChange={(e) => setEfectivoInicial(e.target.value)}
-                  className="w-full border rounded-xl px-4 py-3 text-2xl font-bold text-center text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  autoFocus
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={abriendo}
-                className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-xl rounded-xl min-h-[60px] transition-colors"
-              >
-                {abriendo ? "Abriendo…" : "Abrir caja"}
-              </button>
-            </form>
+      {/* ── Modal: abrir turno ──────────────────── */}
+      <Modal open={turnoModal} title="Abrir turno">
+        <form onSubmit={abrirTurno} className="p-6 space-y-5">
+          <p className="text-sm text-muted">Ingresa el efectivo inicial en caja para comenzar el turno.</p>
+          <div>
+            <label className="text-sm font-medium text-muted block mb-1.5">Efectivo inicial (pesos)</label>
+            <input
+              type="number" min="0" step="0.01" autoFocus
+              value={efectivoInicial}
+              onChange={(e) => setEfectivoInicial(e.target.value)}
+              className="w-full h-16 rounded-lg border border-border bg-bg px-4 text-3xl font-semibold text-center text-text-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
+            />
           </div>
-        </div>
-      )}
+          <Button type="submit" variant="primary" size="xl" className="w-full" disabled={abriendo}>
+            {abriendo ? <Spinner size={18} /> : "Abrir caja"}
+          </Button>
+        </form>
+      </Modal>
 
-      {/* ── Modal: método de pago ── */}
-      {modal === "pago" && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-            <div className="px-6 pt-6 pb-4">
-              <h3 className="text-2xl font-bold text-gray-800 text-center mb-1">
-                Método de pago
-              </h3>
-              <p className="text-center text-3xl font-bold text-green-600">
-                {formatMXN(totalCentavos)}
-              </p>
-            </div>
-            <div className="px-6 pb-6 grid grid-cols-2 gap-4">
+      {/* ── Modal: método de pago ───────────────── */}
+      <Modal open={pagoModal} onClose={() => !cobrando && setPagoModal(false)} title="¿Cómo te pagan?">
+        <div className="p-6 space-y-4">
+          <p className="text-center text-4xl font-semibold text-accent">{formatMXN(total)}</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { metodo: "efectivo" as const, label: "Efectivo", Icon: Banknote },
+              { metodo: "tarjeta" as const,  label: "Tarjeta",  Icon: CreditCard },
+            ].map(({ metodo, label, Icon }) => (
               <button
-                onClick={() => cobrar("efectivo")}
+                key={metodo}
+                onClick={() => cobrar(metodo)}
                 disabled={cobrando}
-                className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-bold text-xl rounded-xl min-h-[80px] flex flex-col items-center justify-center gap-1 transition-colors"
+                className="bg-surface-2 border border-border hover:border-accent rounded-xl p-6 flex flex-col items-center gap-3 transition-all duration-150 active:scale-[0.97] disabled:opacity-50 cursor-pointer"
               >
-                <span className="text-3xl">💵</span>
-                Efectivo
+                <Icon size={32} className="text-accent" />
+                <span className="text-base font-medium text-text">{label}</span>
               </button>
-              <button
-                onClick={() => cobrar("tarjeta")}
-                disabled={cobrando}
-                className="bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white font-bold text-xl rounded-xl min-h-[80px] flex flex-col items-center justify-center gap-1 transition-colors"
-              >
-                <span className="text-3xl">💳</span>
-                Tarjeta
-              </button>
-            </div>
-            <div className="px-6 pb-6">
-              <button
-                onClick={() => setModal("cerrado")}
-                disabled={cobrando}
-                className="w-full border border-gray-300 text-gray-600 font-semibold rounded-xl min-h-[60px] hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
+            ))}
           </div>
+          <Button variant="ghost" size="lg" className="w-full" onClick={() => setPagoModal(false)} disabled={cobrando}>
+            Cancelar
+          </Button>
         </div>
-      )}
+      </Modal>
 
-      {/* ── Modal: confirmación ── */}
-      {modal === "confirmacion" && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm px-8 py-10 text-center">
-            <div className="text-6xl mb-4">✅</div>
-            <h3 className="text-2xl font-bold text-gray-800">Venta registrada</h3>
-            <p className="text-4xl font-bold text-green-600 mt-2">{confirmMsg}</p>
-            <button
-              onClick={() => setModal("cerrado")}
-              className="mt-8 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xl rounded-xl min-h-[60px] transition-colors"
-            >
-              Nueva venta
-            </button>
-          </div>
+      {/* ── Toast de confirmación ───────────────── */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-surface border border-border rounded-xl px-5 py-3 flex items-center gap-3">
+          <CheckCircle2 size={20} className="text-success shrink-0" />
+          <span className="text-base font-medium text-text">{toast}</span>
         </div>
       )}
     </div>
