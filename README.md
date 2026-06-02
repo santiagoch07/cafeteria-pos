@@ -1,36 +1,182 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sonar
 
-## Getting Started
+**Sonar** is a SaaS Point of Sale (POS) and financial intelligence platform built for small businesses in Mexico.
 
-First, run the development server:
+Our mission is simple: help business owners understand whether they are actually making money, without needing an accountant or advanced financial knowledge.
+
+---
+
+## 🚀 Vision
+
+Most small businesses know how much they sell, but very few know how profitable they truly are.
+
+Sonar transforms daily sales data into actionable financial insights, allowing business owners to make better decisions in real time.
+
+---
+
+## 🎯 Problem
+
+Many Mexican SMEs operate with limited financial visibility:
+
+- Sales are recorded manually or in spreadsheets
+- Profitability is unclear
+- Financial reports are difficult to understand
+- Existing ERP systems are expensive and complex
+
+While platforms like Odoo provide extensive functionality, they often require significant onboarding, configuration, and training.
+
+Sonar focuses on simplicity, speed, and accessibility.
+
+---
+
+## ✨ Features
+
+### Point of Sale (POS)
+
+- Product management
+- Categories and inventory organization
+- Transaction recording
+- Sales history
+- Fast checkout experience
+
+### Financial Dashboard
+
+- Real-time business metrics
+- Revenue tracking
+- Cost monitoring
+- Profitability indicators
+- Business performance visualization
+
+### Income Statement
+
+Generate clear financial reports showing:
+
+- Revenue
+- Cost of goods sold
+- Operating expenses
+- Net profit
+
+### Break-Even Analysis
+
+Understand:
+
+- Minimum sales required to cover expenses
+- Profitability thresholds
+- Financial health of the business
+
+### Customization
+
+- Adaptable to different business types
+- Flexible categories and workflows
+- Configurable financial structures
+
+---
+
+## 🏢 Target Market
+
+Sonar is designed for:
+
+- Small businesses
+- Local retailers
+- Family-owned businesses
+- Companies with fewer than 50 employees
+
+Primary market:
+
+**Mexico 🇲🇽**
+
+---
+
+## 💰 Business Model
+
+- Monthly subscription
+- Affordable pricing
+- No mandatory annual contracts
+- Easy onboarding process
+
+---
+
+## 🥊 Competitive Advantage
+
+| Sonar                    | Traditional ERP Systems              |
+| ------------------------ | ------------------------------------ |
+| Simple setup             | Complex implementation               |
+| Focused on profitability | Broad enterprise features            |
+| Designed for SMEs        | Often built for larger organizations |
+| Fast adoption            | Long onboarding process              |
+| Financial clarity first  | Process management first             |
+
+---
+
+## 🛠 Tech Stack
+
+Currently under evaluation.
+
+Potential technologies include:
+
+- Next.js
+- TypeScript
+- PostgreSQL
+- Prisma
+- AWS
+- Stripe
+
+---
+
+## 📦 Getting Started
+
+Clone the repository:
+
+```bash
+git clone <repository-url>
+cd sonar
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 📈 Current Status
 
-To learn more about Next.js, take a look at the following resources:
+**Early Development**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The project is currently in its initial development phase and core functionality is being designed and implemented.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 🤝 Contributing
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Contributions, feedback, and ideas are welcome.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If you'd like to contribute:
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a Pull Request
+
+---
+
+## 📄 License
+
+License to be determined.
+
+---
+
+Built with the goal of helping small businesses understand their numbers and make better financial decisions.
