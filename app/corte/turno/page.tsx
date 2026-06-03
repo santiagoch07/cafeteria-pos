@@ -8,7 +8,7 @@ import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
 import Textarea from "@/components/ui/Textarea";
 
-type Turno = { id: number; fecha_apertura: string; efectivo_inicial: number; estado: string };
+type Turno = { id: string; fecha_apertura: string; efectivo_inicial: number; estado: string };
 type Resumen = { tickets: number; total_efectivo: number; total_tarjeta: number; propinas: number; efectivo_esperado: number };
 type CierreResult = { diferencia: number; efectivo_final_sistema: number; efectivo_final_real: number };
 
@@ -32,10 +32,10 @@ export default function CorteTurnoPage() {
 
   useEffect(() => {
     async function cargar() {
-      const t: Turno | null = await fetch("/api/turnos/abierto").then((r) => r.json());
+      const t: Turno | null = await fetch("/api/turnos/abierto", { cache: "no-store" }).then((r) => r.json());
       setTurno(t);
       if (t) {
-        const r = await fetch(`/api/turnos/${t.id}/resumen`);
+        const r = await fetch(`/api/turnos/${t.id}/resumen`, { cache: "no-store" });
         if (r.ok) setResumen(await r.json());
       }
       setLoading(false);
@@ -55,6 +55,7 @@ export default function CorteTurnoPage() {
     if (res.ok) {
       const t = await res.json();
       setResultado({ diferencia: t.diferencia, efectivo_final_sistema: t.efectivo_final_sistema, efectivo_final_real: t.efectivo_final_real });
+      router.refresh();
     } else {
       alert("Error al cerrar el turno");
     }

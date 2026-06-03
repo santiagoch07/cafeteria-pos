@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { fechaRelativa, pctCambio } from "@/lib/format";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // UTC-6 (CST México): medianoche local = 06:00 UTC
 function diaRango(fecha: string) {
   return {
@@ -42,7 +45,7 @@ export async function GET(request: Request) {
       .lt("fecha", rangoSemana.fin),
     supabase
       .from("turnos")
-      .select("id, fecha_apertura, fecha_cierre, efectivo_inicial, efectivo_final_real, diferencia, estado")
+      .select("id, fecha_apertura, fecha_cierre, efectivo_inicial, efectivo_final_real, efectivo_final_sistema, diferencia, estado")
       .gte("fecha_apertura", rango.inicio)
       .lt("fecha_apertura", rango.fin)
       .order("fecha_apertura", { ascending: true }),
@@ -113,8 +116,10 @@ export async function GET(request: Request) {
     fecha_apertura: t.fecha_apertura,
     fecha_cierre: t.fecha_cierre,
     efectivo_inicial: t.efectivo_inicial,
+    efectivo_final_sistema: t.efectivo_final_sistema,
     efectivo_final_real: t.efectivo_final_real,
     diferencia: t.diferencia,
+    estado: t.estado,
     total_vendido: rows
       .filter((o) => o.turno_id === t.id)
       .reduce((s, o) => s + o.total, 0),

@@ -9,21 +9,24 @@ import Spinner from "@/components/ui/Spinner";
 
 const VentasPorHoraChart = dynamic(() => import("@/components/VentasPorHoraChart"), { ssr: false });
 
-type KPIs = { total: number; tickets: number; ticket_promedio: number; propinas: number };
-type Comparativo = { total_pct: number | null; tickets_pct: number | null };
-type MetodoRow = { metodo_pago: string; tickets: number; total: number; propinas: number };
-type ProductoRow = { nombre: string; cantidad: number; total: number };
-type HoraRow = { hora: string; tickets: number; total: number };
+type KPIs = { ventas_totales: number; num_tickets: number; ticket_promedio: number; propinas: number };
+type Comparativos = { vs_ayer: number | null; vs_semana_pasada: number | null };
+type MetodosPago = { efectivo: number; tarjeta: number };
+type ProductoRow = { producto_id: string; nombre: string; cantidad: number; total: number };
+type HoraRow = { hora: number; total: number };
 type TurnoRow = {
-  id: number; fecha_apertura: string; fecha_cierre: string | null;
-  efectivo_final_sistema: number | null; efectivo_final_real: number | null;
-  diferencia: number | null; estado: string;
+  id: string; fecha_apertura: string; fecha_cierre: string | null;
+  efectivo_final_real: number | null; diferencia: number | null;
+  estado: string; total_vendido: number;
 };
 type ReporteData = {
-  fecha: string; fecha_display: string;
-  kpis: KPIs; comparativo_ayer: Comparativo; comparativo_semana: Comparativo;
-  por_metodo: MetodoRow[]; top_productos: ProductoRow[];
-  ventas_por_hora: HoraRow[]; turnos_dia: TurnoRow[];
+  fecha: string;
+  kpis: KPIs;
+  comparativos: Comparativos;
+  metodos_pago: MetodosPago;
+  top_productos: ProductoRow[];
+  ventas_por_hora: HoraRow[];
+  turnos: TurnoRow[];
 };
 
 function hoy(): string {
@@ -38,15 +41,15 @@ export default function CortePage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/reportes/dia?fecha=${fecha}`)
+    fetch(`/api/reportes/dia?fecha=${fecha}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setData(d))
       .finally(() => setLoading(false));
   }, [fecha]);
 
-  const totalMetodo = data?.por_metodo.reduce((s, r) => s + r.total, 0) ?? 0;
-  const efectivoTotal = data?.por_metodo.find((r) => r.metodo_pago === "efectivo")?.total ?? 0;
-  const tarjetaTotal  = data?.por_metodo.find((r) => r.metodo_pago === "tarjeta")?.total ?? 0;
+  const efectivoTotal = data?.metodos_pago.efectivo ?? 0;
+  const tarjetaTotal  = data?.metodos_pago.tarjeta ?? 0;
+  const totalMetodo   = efectivoTotal + tarjetaTotal;
   const efectivoPct   = totalMetodo > 0 ? Math.round((efectivoTotal / totalMetodo) * 100) : 0;
   const tarjetaPct    = 100 - efectivoPct;
   const topMax        = data?.top_productos[0]?.total ?? 1;
@@ -59,7 +62,7 @@ export default function CortePage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold text-text-strong capitalize">
-              {data ? data.fecha_display : "Cargando…"}
+              {data ? formatFechaEspanol(data.fecha) : "Cargando…"}
             </h1>
             <p className="text-sm text-muted mt-0.5">Resumen del día</p>
           </div>
@@ -83,26 +86,23 @@ export default function CortePage() {
             <div className="grid grid-cols-2 gap-4">
               <StatCard
                 label="Ventas del día"
-                value={formatMXN(data.kpis.total)}
+                value={formatMXN(data.kpis.ventas_totales)}
                 hero
-                ayerPct={data.comparativo_ayer.total_pct}
-                semanaPct={data.comparativo_semana.total_pct}
+                ayerPct={data.comparativos.vs_ayer}
+                semanaPct={data.comparativos.vs_semana_pasada}
               />
               <StatCard
                 label="Tickets"
-                value={String(data.kpis.tickets)}
-                ayerPct={data.comparativo_ayer.tickets_pct}
-                semanaPct={data.comparativo_semana.tickets_pct}
+                value={String(data.kpis.num_tickets)}
               />
               <StatCard label="Ticket promedio" value={formatMXN(data.kpis.ticket_promedio)} />
               <StatCard label="Propinas" value={formatMXN(data.kpis.propinas)} />
             </div>
 
             {/* Métodos de pago */}
-            {data.por_metodo.length > 0 && (
+            {(efectivoTotal > 0 || tarjetaTotal > 0) && (
               <div className="bg-surface border border-border rounded-xl p-5 space-y-4">
                 <p className="text-xs text-muted uppercase tracking-widest">Métodos de pago</p>
-                {/* Barra apilada */}
                 <div className="h-3 rounded-full overflow-hidden flex bg-surface-2">
                   {efectivoPct > 0 && (
                     <div className="h-full bg-text-strong transition-all" style={{ width: `${efectivoPct}%` }} />
@@ -111,7 +111,6 @@ export default function CortePage() {
                     <div className="h-full bg-accent transition-all" style={{ width: `${tarjetaPct}%` }} />
                   )}
                 </div>
-                {/* Leyenda */}
                 <div className="flex gap-5 flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-sm bg-text-strong shrink-0" />
@@ -147,7 +146,7 @@ export default function CortePage() {
                 <p className="text-xs text-muted uppercase tracking-widest">Top productos</p>
                 <div className="space-y-3">
                   {data.top_productos.map((p, i) => (
-                    <div key={i} className="space-y-1.5">
+                    <div key={p.producto_id} className="space-y-1.5">
                       <div className="flex items-center gap-3">
                         <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium shrink-0 ${i === 0 ? "bg-accent text-black" : "bg-surface-2 text-muted"}`}>
                           {i + 1}
@@ -169,7 +168,7 @@ export default function CortePage() {
             )}
 
             {/* Turnos del día */}
-            {data.turnos_dia.length > 0 && (
+            {data.turnos.length > 0 && (
               <div className="bg-surface border border-border rounded-xl overflow-hidden">
                 <div className="px-5 py-3 border-b border-border">
                   <p className="text-xs text-muted uppercase tracking-widest">Turnos del día</p>
@@ -183,7 +182,7 @@ export default function CortePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.turnos_dia.map((t) => {
+                    {data.turnos.map((t) => {
                       const dif = t.diferencia;
                       return (
                         <tr key={t.id} className="border-b border-border last:border-0 hover:bg-surface-2 transition-colors">
@@ -206,7 +205,7 @@ export default function CortePage() {
             )}
 
             {/* Sin datos */}
-            {data.kpis.tickets === 0 && data.turnos_dia.length === 0 && (
+            {data.kpis.num_tickets === 0 && data.turnos.length === 0 && (
               <div className="text-center py-16 text-muted space-y-2">
                 <p className="text-xl">Sin ventas este día</p>
                 {fecha === hoy() && <p className="text-sm">Las ventas de hoy aparecerán aquí en tiempo real.</p>}

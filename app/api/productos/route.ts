@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { pesosToCentavos } from "@/lib/format";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type CategoriaEmbed = { id: string; nombre: string } | null;
 
 export async function GET() {

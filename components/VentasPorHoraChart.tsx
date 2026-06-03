@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import { formatMXN } from "@/lib/format";
 
-type HoraRow = { hora: string; tickets: number; total: number };
+type HoraRow = { hora: string | number; total: number };
 
 function CustomTooltip({ active, payload, label }: {
   active?: boolean; payload?: { value: number }[]; label?: string;

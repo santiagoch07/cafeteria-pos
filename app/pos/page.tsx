@@ -10,22 +10,22 @@ import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 
 type Producto = {
-  id: number;
+  id: string;
   nombre: string;
   precio: number;
-  categoria_id: number | null;
+  categoria_id: string | null;
   categoria_nombre: string | null;
-  disponible: number;
+  disponible: boolean;
 };
 
 type TicketItem = {
-  producto_id: number;
+  producto_id: string;
   nombre: string;
   precio_unitario: number;
   cantidad: number;
 };
 
-type Turno = { id: number; fecha_apertura: string; efectivo_inicial: number; estado: string };
+type Turno = { id: string; fecha_apertura: string; efectivo_inicial: number; estado: string };
 
 const PROPINA_PCTS = [0, 10, 15, 20];
 
@@ -55,7 +55,7 @@ export default function PosPage() {
 
   // ── Turno: check al montar ───────────────────────
   useEffect(() => {
-    fetch("/api/turnos/abierto")
+    fetch("/api/turnos/abierto", { cache: "no-store" })
       .then((r) => r.json())
       .then((t) => {
         setTurno(t);
@@ -65,9 +65,9 @@ export default function PosPage() {
   }, []);
 
   const fetchProductos = useCallback(async () => {
-    const res = await fetch("/api/productos");
+    const res = await fetch("/api/productos", { cache: "no-store" });
     const data: Producto[] = await res.json();
-    setProductos(data.filter((p) => p.disponible === 1));
+    setProductos(data.filter((p) => p.disponible));
   }, []);
 
   useEffect(() => { if (turno) fetchProductos(); }, [turno, fetchProductos]);
@@ -102,14 +102,14 @@ export default function PosPage() {
     });
   }
 
-  function cambiarCantidad(id: number, delta: number) {
+  function cambiarCantidad(id: string, delta: number) {
     setTicket((prev) =>
       prev.map((i) => i.producto_id === id ? { ...i, cantidad: i.cantidad + delta } : i)
           .filter((i) => i.cantidad > 0)
     );
   }
 
-  function eliminar(id: number) {
+  function eliminar(id: string) {
     setTicket((prev) => prev.filter((i) => i.producto_id !== id));
   }
 
@@ -144,6 +144,7 @@ export default function PosPage() {
       const orden = await res.json();
       setPagoModal(false);
       limpiar();
+      router.refresh();
       setToast(`Venta de ${formatMXN(orden.total)} registrada`);
       setTimeout(() => setToast(null), 2000);
     } finally {
@@ -152,7 +153,7 @@ export default function PosPage() {
   }
 
   const vacio = ticket.length === 0;
-  const cantidadEnTicket = (id: number) => ticket.find((i) => i.producto_id === id)?.cantidad ?? 0;
+  const cantidadEnTicket = (id: string) => ticket.find((i) => i.producto_id === id)?.cantidad ?? 0;
 
   if (loadingTurno) {
     return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Pencil, Trash2, PackageX } from "lucide-react";
 import { formatMXN } from "@/lib/format";
 import Button from "@/components/ui/Button";
@@ -10,15 +11,16 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 
-type Categoria = { id: number; nombre: string; orden: number };
+type Categoria = { id: string; nombre: string };
 type Producto = {
-  id: number; nombre: string; precio: number;
-  categoria_id: number | null; categoria_nombre: string | null; disponible: number;
+  id: string; nombre: string; precio: number;
+  categoria_id: string | null; categoria_nombre: string | null; disponible: boolean;
 };
 
-const EMPTY = { nombre: "", precio_pesos: "", categoria_id: "" as string | number, nueva_categoria: "", disponible: true };
+const EMPTY = { nombre: "", precio_pesos: "", categoria_id: "" as string, nueva_categoria: "", disponible: true };
 
 export default function AdminProductosPage() {
+  const router = useRouter();
   const [productos, setProductos]   = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [filtro, setFiltro]         = useState("Todos");
@@ -30,7 +32,10 @@ export default function AdminProductosPage() {
   const [loading, setLoading]       = useState(true);
 
   const fetchData = useCallback(async () => {
-    const [pr, cr] = await Promise.all([fetch("/api/productos"), fetch("/api/categorias")]);
+    const [pr, cr] = await Promise.all([
+      fetch("/api/productos", { cache: "no-store" }),
+      fetch("/api/categorias", { cache: "no-store" }),
+    ]);
     setProductos(await pr.json());
     setCategorias(await cr.json());
     setLoading(false);
@@ -43,14 +48,14 @@ export default function AdminProductosPage() {
   }
   function abrirEditar(p: Producto) {
     setEditando(p);
-    setForm({ nombre: p.nombre, precio_pesos: String(p.precio / 100), categoria_id: p.categoria_id ?? "", nueva_categoria: "", disponible: p.disponible === 1 });
+    setForm({ nombre: p.nombre, precio_pesos: String(p.precio / 100), categoria_id: p.categoria_id ?? "", nueva_categoria: "", disponible: p.disponible });
     setError(""); setModalOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      let categoriaId: number | null = form.categoria_id ? Number(form.categoria_id) : null;
+      let categoriaId: string | null = form.categoria_id || null;
       if (form.categoria_id === "nueva" && form.nueva_categoria.trim()) {
         const r = await fetch("/api/categorias", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: form.nueva_categoria.trim() }) });
         if (!r.ok) throw new Error((await r.json()).error ?? "Error al crear categoría");
@@ -63,21 +68,25 @@ export default function AdminProductosPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Error al guardar");
-      await fetchData(); setModalOpen(false);
+      await fetchData();
+      router.refresh();
+      setModalOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally { setSaving(false); }
   }
 
   async function toggleDisponible(p: Producto) {
-    await fetch(`/api/productos/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ disponible: p.disponible === 0 }) });
+    await fetch(`/api/productos/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ disponible: !p.disponible }) });
     fetchData();
+    router.refresh();
   }
 
   async function eliminar(p: Producto) {
     if (!confirm(`¿Eliminar "${p.nombre}"? Esta acción no se puede deshacer.`)) return;
     await fetch(`/api/productos/${p.id}`, { method: "DELETE" });
     fetchData();
+    router.refresh();
   }
 
   const categoriasFiltro = ["Todos", ...Array.from(new Set(productos.map((p) => p.categoria_nombre ?? "Sin categoría")))];
