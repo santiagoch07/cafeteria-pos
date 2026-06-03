@@ -3,25 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, TrendingUp } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const LINKS = [
+type NavItem = { href: string; label: string; Icon?: LucideIcon };
+
+const LINKS: NavItem[] = [
   { href: "/pos",              label: "Caja" },
   { href: "/admin/productos",  label: "Productos" },
   { href: "/corte",            label: "Corte" },
+  { href: "/finanzas/gastos",  label: "Finanzas", Icon: TrendingUp },
 ];
 
-function NavLink({ href, label, active, onClick }: { href: string; label: string; active: boolean; onClick?: () => void }) {
+function NavLink({ href, label, active, Icon, onClick }: { href: string; label: string; active: boolean; Icon?: LucideIcon; onClick?: () => void }) {
   return (
     <Link
       href={href}
       onClick={onClick}
-      className={`relative text-sm transition-colors duration-150 px-1 pb-0.5 ${
+      className={`relative inline-flex items-center gap-1.5 text-sm transition-colors duration-150 px-1 pb-0.5 ${
         active
           ? "text-text-strong font-medium"
           : "text-muted hover:text-text"
       }`}
     >
+      {Icon && <Icon size={14} />}
       {label}
       {active && (
         <span className="absolute -bottom-[17px] left-0 right-0 h-0.5 bg-accent rounded-full" />
@@ -48,8 +53,8 @@ export default function NavBar() {
 
         {/* Desktop links */}
         <div className="hidden sm:flex items-center gap-6 h-full">
-          {LINKS.map(({ href, label }) => (
-            <NavLink key={href} href={href} label={label} active={isActive(href)} />
+          {LINKS.map(({ href, label, Icon }) => (
+            <NavLink key={href} href={href} label={label} active={isActive(href)} Icon={Icon} />
           ))}
         </div>
 
