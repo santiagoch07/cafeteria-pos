@@ -24,6 +24,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const updates: Record<string, unknown> = {};
   if (body.nombre !== undefined) updates.nombre = body.nombre.trim();
   if (body.precio_pesos !== undefined) updates.precio = pesosToCentavos(body.precio_pesos);
+  if (body.costo_pesos !== undefined) updates.costo = pesosToCentavos(body.costo_pesos);
   if (body.categoria_id !== undefined) updates.categoria_id = body.categoria_id;
   if (body.disponible !== undefined) updates.disponible = body.disponible;
 

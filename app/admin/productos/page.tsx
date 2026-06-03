@@ -13,11 +13,16 @@ import Spinner from "@/components/ui/Spinner";
 
 type Categoria = { id: string; nombre: string };
 type Producto = {
-  id: string; nombre: string; precio: number;
+  id: string; nombre: string; precio: number; costo: number;
   categoria_id: string | null; categoria_nombre: string | null; disponible: boolean;
 };
 
-const EMPTY = { nombre: "", precio_pesos: "", categoria_id: "" as string, nueva_categoria: "", disponible: true };
+const EMPTY = { nombre: "", precio_pesos: "", costo_pesos: "0", categoria_id: "" as string, nueva_categoria: "", disponible: true };
+
+function calcMargen(precio: number, costo: number): string {
+  if (precio === 0) return "—";
+  return ((precio - costo) / precio * 100).toFixed(1) + "%";
+}
 
 export default function AdminProductosPage() {
   const router = useRouter();
@@ -48,7 +53,7 @@ export default function AdminProductosPage() {
   }
   function abrirEditar(p: Producto) {
     setEditando(p);
-    setForm({ nombre: p.nombre, precio_pesos: String(p.precio / 100), categoria_id: p.categoria_id ?? "", nueva_categoria: "", disponible: p.disponible });
+    setForm({ nombre: p.nombre, precio_pesos: String(p.precio / 100), costo_pesos: String(p.costo / 100), categoria_id: p.categoria_id ?? "", nueva_categoria: "", disponible: p.disponible });
     setError(""); setModalOpen(true);
   }
 
@@ -61,7 +66,7 @@ export default function AdminProductosPage() {
         if (!r.ok) throw new Error((await r.json()).error ?? "Error al crear categoría");
         categoriaId = (await r.json()).id;
       }
-      const payload = { nombre: form.nombre, precio_pesos: parseFloat(form.precio_pesos as string), categoria_id: categoriaId, disponible: form.disponible };
+      const payload = { nombre: form.nombre, precio_pesos: parseFloat(form.precio_pesos as string), costo_pesos: parseFloat(form.costo_pesos) || 0, categoria_id: categoriaId, disponible: form.disponible };
       const res = await fetch(editando ? `/api/productos/${editando.id}` : "/api/productos", {
         method: editando ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,6 +146,8 @@ export default function AdminProductosPage() {
                   <th className="px-4 py-3 text-left text-xs text-muted uppercase tracking-widest font-medium">Nombre</th>
                   <th className="px-4 py-3 text-left text-xs text-muted uppercase tracking-widest font-medium">Categoría</th>
                   <th className="px-4 py-3 text-right text-xs text-muted uppercase tracking-widest font-medium">Precio</th>
+                  <th className="px-4 py-3 text-right text-xs text-muted uppercase tracking-widest font-medium">Costo</th>
+                  <th className="px-4 py-3 text-right text-xs text-muted uppercase tracking-widest font-medium">Margen</th>
                   <th className="px-4 py-3 text-center text-xs text-muted uppercase tracking-widest font-medium">Estado</th>
                   <th className="px-4 py-3 text-right text-xs text-muted uppercase tracking-widest font-medium">Acciones</th>
                 </tr>
@@ -156,6 +163,12 @@ export default function AdminProductosPage() {
                     </td>
                     <td className="px-4 py-3 text-right text-base font-semibold text-text-strong">
                       {formatMXN(p.precio)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-muted">
+                      {p.costo > 0 ? formatMXN(p.costo) : <span className="text-surface-2">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-medium text-muted">
+                      {p.costo > 0 ? calcMargen(p.precio, p.costo) : <span className="text-surface-2">—</span>}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button onClick={() => toggleDisponible(p)}>
@@ -204,6 +217,23 @@ export default function AdminProductosPage() {
             required
             placeholder="Ej. 35.00"
           />
+
+          <Input
+            label="Costo del producto (pesos)"
+            type="number" step="0.01" min="0"
+            value={form.costo_pesos}
+            onChange={(e) => setForm({ ...form, costo_pesos: e.target.value })}
+            placeholder="Ej. 15.00"
+          />
+
+          {parseFloat(form.precio_pesos) > 0 && (
+            <p className="text-sm text-muted -mt-2">
+              Margen estimado:{" "}
+              <span className="font-semibold text-accent">
+                {((parseFloat(form.precio_pesos) - (parseFloat(form.costo_pesos) || 0)) / parseFloat(form.precio_pesos) * 100).toFixed(1)}%
+              </span>
+            </p>
+          )}
 
           <Select
             label="Categoría"

@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const supabase = getSupabase();
   const body = await request.json();
-  const { nombre, precio_pesos, categoria_id, disponible = true } = body;
+  const { nombre, precio_pesos, costo_pesos = 0, categoria_id, disponible = true } = body;
 
   if (!nombre?.trim()) {
     return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     .insert({
       nombre: nombre.trim(),
       precio: pesosToCentavos(precio_pesos),
+      costo: pesosToCentavos(costo_pesos),
       categoria_id: categoria_id ?? null,
       disponible,
     })
