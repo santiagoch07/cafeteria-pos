@@ -12,7 +12,7 @@ const LINKS: NavItem[] = [
   { href: "/pos",              label: "Caja" },
   { href: "/admin/productos",  label: "Productos" },
   { href: "/corte",            label: "Corte" },
-  { href: "/finanzas/gastos",  label: "Finanzas", Icon: TrendingUp },
+  { href: "/finanzas",         label: "Finanzas", Icon: TrendingUp },
 ];
 
 function NavLink({ href, label, active, Icon, onClick }: { href: string; label: string; active: boolean; Icon?: LucideIcon; onClick?: () => void }) {
