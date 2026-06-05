@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { getEmpresaIdFromSession } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,10 +27,10 @@ function mesPrevio(mes: number, anio: number) {
   return mes === 1 ? { mes: 12, anio: anio - 1 } : { mes: mes - 1, anio };
 }
 
-type ItemRow  = { cantidad: number; producto: { costo: number } | null };
-type OrdenRow = { total: number; fecha: string; items: ItemRow[] };
+type ItemRow     = { cantidad: number; producto: { costo: number } | null };
+type OrdenRow    = { total: number; fecha: string; items: ItemRow[] };
 type OrdenPrevRow = { total: number; items: ItemRow[] };
-type GastoRow = { monto: number; tipo: { nombre: string; orden: number } };
+type GastoRow    = { monto: number; tipo: { nombre: string; orden: number } };
 
 function sumarOrden(ordenes: OrdenRow[] | OrdenPrevRow[]) {
   let ventas = 0, costo = 0;
@@ -44,11 +45,15 @@ function evaluacion(margen: number, ventas: number) {
   if (ventas === 0) return { estado: "precaucion" as const, mensaje: "Sin ventas registradas en este periodo." };
   if (margen >= 25) return { estado: "excelente" as const, mensaje: "Margen excelente. Tu negocio es muy rentable este mes." };
   if (margen >= 15) return { estado: "bueno" as const, mensaje: "Margen sano. Estás en rango ideal para una cafetería." };
-  if (margen >= 5) return { estado: "precaucion" as const, mensaje: "Margen ajustado. Revisa gastos fijos o estructura de precios." };
+  if (margen >= 5)  return { estado: "precaucion" as const, mensaje: "Margen ajustado. Revisa gastos fijos o estructura de precios." };
   return { estado: "critico" as const, mensaje: "Margen muy bajo. Necesitas acción urgente sobre costos o ventas." };
 }
 
 export async function GET(request: Request) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
+  const supabase = getSupabase();
   const { searchParams } = new URL(request.url);
   const mes  = parseInt(searchParams.get("mes")  ?? "");
   const anio = parseInt(searchParams.get("anio") ?? "");
@@ -57,9 +62,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "mes y anio son requeridos" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
-  const rango = rangoMes(mes, anio);
-  const prev  = mesPrevio(mes, anio);
+  const rango     = rangoMes(mes, anio);
+  const prev      = mesPrevio(mes, anio);
   const rangoPrev = rangoMes(prev.mes, prev.anio);
 
   const [
@@ -70,15 +74,19 @@ export async function GET(request: Request) {
   ] = await Promise.all([
     supabase.from("ordenes")
       .select("total, fecha, items:orden_items(cantidad, producto:productos(costo))")
+      .eq("empresa_id", empresaId)
       .gte("fecha", rango.inicio).lt("fecha", rango.fin),
     supabase.from("gastos_mensuales")
       .select("monto, tipo:tipos_gasto(nombre, orden)")
+      .eq("empresa_id", empresaId)
       .eq("mes", mes).eq("año", anio),
     supabase.from("ordenes")
       .select("total, items:orden_items(cantidad, producto:productos(costo))")
+      .eq("empresa_id", empresaId)
       .gte("fecha", rangoPrev.inicio).lt("fecha", rangoPrev.fin),
     supabase.from("gastos_mensuales")
       .select("monto")
+      .eq("empresa_id", empresaId)
       .eq("mes", prev.mes).eq("año", prev.anio),
   ]);
 

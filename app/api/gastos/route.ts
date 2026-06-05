@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { pesosToCentavos } from "@/lib/format";
+import { getEmpresaIdFromSession } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(request: Request) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
   const { searchParams } = new URL(request.url);
   const mes  = parseInt(searchParams.get("mes")   ?? "");
   const anio = parseInt(searchParams.get("anio")  ?? "");
@@ -15,18 +19,22 @@ export async function GET(request: Request) {
   }
 
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  const { data, error: dbError } = await supabase
     .from("gastos_mensuales")
     .select("*, tipo:tipos_gasto(id, nombre, orden)")
+    .eq("empresa_id", empresaId)
     .eq("mes", mes)
     .eq("año", anio)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
   return NextResponse.json(data);
 }
 
 export async function POST(request: Request) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
   const supabase = getSupabase();
   const body = await request.json();
   const { mes, año: anio, tipo_gasto_id, monto_pesos, notas } = body;
@@ -38,7 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error: dbError } = await supabase
     .from("gastos_mensuales")
     .insert({
       mes,
@@ -46,18 +54,19 @@ export async function POST(request: Request) {
       tipo_gasto_id,
       monto: pesosToCentavos(monto_pesos),
       notas: notas?.trim() || null,
+      empresa_id: empresaId,
     })
     .select("*, tipo:tipos_gasto(id, nombre, orden)")
     .single();
 
-  if (error) {
-    if (error.code === "23505") {
+  if (dbError) {
+    if (dbError.code === "23505") {
       return NextResponse.json(
         { error: "Ya existe un gasto de este tipo este mes. Edítalo en lugar de crear uno nuevo." },
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
   return NextResponse.json(data, { status: 201 });

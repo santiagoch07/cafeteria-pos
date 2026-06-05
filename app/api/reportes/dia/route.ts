@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { fechaRelativa, pctCambio } from "@/lib/format";
+import { getEmpresaIdFromSession } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,71 +15,73 @@ function diaRango(fecha: string) {
 }
 
 export async function GET(request: Request) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
   const supabase = getSupabase();
   const { searchParams } = new URL(request.url);
   const fecha = searchParams.get("fecha") ?? new Date().toISOString().slice(0, 10);
 
-  const rango = diaRango(fecha);
-  const rangoAyer = diaRango(fechaRelativa(fecha, -1));
+  const rango      = diaRango(fecha);
+  const rangoAyer  = diaRango(fechaRelativa(fecha, -1));
   const rangoSemana = diaRango(fechaRelativa(fecha, -7));
 
   const [
-    { data: ordenes, error: errOrdenes },
-    { data: ordenesAyer, error: errAyer },
-    { data: ordenesSemana, error: errSemana },
-    { data: turnos, error: errTurnos },
+    { data: ordenes,      error: errOrdenes },
+    { data: ordenesAyer,  error: errAyer },
+    { data: ordenesSemana,error: errSemana },
+    { data: turnos,       error: errTurnos },
   ] = await Promise.all([
     supabase
       .from("ordenes")
       .select("*, items:orden_items(cantidad, precio_unitario, producto:productos(id, nombre))")
+      .eq("empresa_id", empresaId)
       .gte("fecha", rango.inicio)
       .lt("fecha", rango.fin),
     supabase
       .from("ordenes")
       .select("total")
+      .eq("empresa_id", empresaId)
       .gte("fecha", rangoAyer.inicio)
       .lt("fecha", rangoAyer.fin),
     supabase
       .from("ordenes")
       .select("total")
+      .eq("empresa_id", empresaId)
       .gte("fecha", rangoSemana.inicio)
       .lt("fecha", rangoSemana.fin),
     supabase
       .from("turnos")
       .select("id, fecha_apertura, fecha_cierre, efectivo_inicial, efectivo_final_real, efectivo_final_sistema, diferencia, estado")
+      .eq("empresa_id", empresaId)
       .gte("fecha_apertura", rango.inicio)
       .lt("fecha_apertura", rango.fin)
       .order("fecha_apertura", { ascending: true }),
   ]);
 
   if (errOrdenes) return NextResponse.json({ error: errOrdenes.message }, { status: 500 });
-  if (errAyer) return NextResponse.json({ error: errAyer.message }, { status: 500 });
-  if (errSemana) return NextResponse.json({ error: errSemana.message }, { status: 500 });
-  if (errTurnos) return NextResponse.json({ error: errTurnos.message }, { status: 500 });
+  if (errAyer)    return NextResponse.json({ error: errAyer.message },    { status: 500 });
+  if (errSemana)  return NextResponse.json({ error: errSemana.message },  { status: 500 });
+  if (errTurnos)  return NextResponse.json({ error: errTurnos.message },  { status: 500 });
 
   const rows = ordenes ?? [];
 
   // KPIs
-  const ventas_totales = rows.reduce((s, o) => s + o.total, 0);
-  const num_tickets = rows.length;
+  const ventas_totales  = rows.reduce((s, o) => s + o.total, 0);
+  const num_tickets     = rows.length;
   const ticket_promedio = num_tickets > 0 ? Math.round(ventas_totales / num_tickets) : 0;
-  const propinas = rows.reduce((s, o) => s + o.propina, 0);
+  const propinas        = rows.reduce((s, o) => s + o.propina, 0);
 
-  // Comparativos (null si el día anterior no tiene ventas)
-  const totalAyer = (ordenesAyer ?? []).reduce((s, o) => s + o.total, 0);
+  const totalAyer   = (ordenesAyer   ?? []).reduce((s, o) => s + o.total, 0);
   const totalSemana = (ordenesSemana ?? []).reduce((s, o) => s + o.total, 0);
 
   // Métodos de pago
   const metodos_pago = {
-    efectivo: rows
-      .filter((o) => o.metodo_pago === "efectivo")
-      .reduce((s, o) => s + o.total, 0),
-    tarjeta: rows
-      .filter((o) => o.metodo_pago === "tarjeta")
-      .reduce((s, o) => s + o.total, 0),
+    efectivo: rows.filter((o) => o.metodo_pago === "efectivo").reduce((s, o) => s + o.total, 0),
+    tarjeta:  rows.filter((o) => o.metodo_pago === "tarjeta").reduce((s, o) => s + o.total, 0),
   };
 
-  // Top 5 productos por total vendido
+  // Top 5 productos
   const productoMap = new Map<string, { nombre: string; cantidad: number; total: number }>();
   for (const orden of rows) {
     for (const item of (orden.items as { cantidad: number; precio_unitario: number; producto: { id: string; nombre: string } | null }[]) ?? []) {
@@ -99,7 +102,7 @@ export async function GET(request: Request) {
     .sort((a, b) => b.total - a.total)
     .slice(0, 5);
 
-  // Ventas por hora (0-23, UTC — ajustar +offset si se mueve a CDT)
+  // Ventas por hora (UTC)
   const horaMap = new Map<number, number>();
   for (const orden of rows) {
     const hora = new Date(orden.fecha).getUTCHours();
@@ -110,7 +113,7 @@ export async function GET(request: Request) {
     total: horaMap.get(h) ?? 0,
   }));
 
-  // Turnos con total vendido calculado de las ordenes ya cargadas
+  // Turnos con total vendido
   const turnoRows = (turnos ?? []).map((t) => ({
     id: t.id,
     fecha_apertura: t.fecha_apertura,

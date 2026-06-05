@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { pesosToCentavos } from "@/lib/format";
+import { getEmpresaIdFromSession } from "@/lib/auth-server";
 
 type Params = { params: { id: string } };
 
 export async function PATCH(request: Request, { params }: Params) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
   const supabase = getSupabase();
   const { id } = params;
 
@@ -12,6 +16,7 @@ export async function PATCH(request: Request, { params }: Params) {
     .from("turnos")
     .select("id, efectivo_inicial")
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .eq("estado", "abierto")
     .maybeSingle();
 
@@ -24,11 +29,12 @@ export async function PATCH(request: Request, { params }: Params) {
   const efectivo_final_real = pesosToCentavos(body.efectivo_real_pesos ?? 0);
   const notas: string | null = body.notas ?? null;
 
-  // Sumar ventas en efectivo (total + propina) del turno
+  // Sumar ventas en efectivo (total + propina) del turno de esta empresa
   const { data: ordenesEfectivo, error: ordenesError } = await supabase
     .from("ordenes")
     .select("total, propina")
     .eq("turno_id", id)
+    .eq("empresa_id", empresaId)
     .eq("metodo_pago", "efectivo");
 
   if (ordenesError) return NextResponse.json({ error: ordenesError.message }, { status: 500 });
@@ -52,6 +58,7 @@ export async function PATCH(request: Request, { params }: Params) {
       notas,
     })
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .select()
     .single();
 

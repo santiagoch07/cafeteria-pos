@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { pesosToCentavos } from "@/lib/format";
+import { getEmpresaIdFromSession } from "@/lib/auth-server";
 
 type Params = { params: { id: string } };
 type CategoriaEmbed = { id: string; nombre: string } | null;
 
 export async function PATCH(request: Request, { params }: Params) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
   const supabase = getSupabase();
   const { id } = params;
   const body = await request.json();
@@ -14,6 +18,7 @@ export async function PATCH(request: Request, { params }: Params) {
     .from("productos")
     .select("id")
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
 
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
@@ -32,20 +37,24 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Sin campos para actualizar" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error: dbError } = await supabase
     .from("productos")
     .update(updates)
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .select("*, categoria:categorias(id, nombre)")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
   const { categoria, ...rest } = data as typeof data & { categoria: CategoriaEmbed };
   return NextResponse.json({ ...rest, categoria_nombre: categoria?.nombre ?? null });
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
   const supabase = getSupabase();
   const { id } = params;
 
@@ -53,6 +62,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     .from("productos")
     .select("id")
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
 
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
@@ -60,8 +70,13 @@ export async function DELETE(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
   }
 
-  const { error } = await supabase.from("productos").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { error: dbError } = await supabase
+    .from("productos")
+    .delete()
+    .eq("id", id)
+    .eq("empresa_id", empresaId);
+
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
   return new NextResponse(null, { status: 204 });
 }

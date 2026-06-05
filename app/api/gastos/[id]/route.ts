@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { pesosToCentavos } from "@/lib/format";
+import { getEmpresaIdFromSession } from "@/lib/auth-server";
 
 type Params = { params: { id: string } };
 
 export async function PATCH(request: Request, { params }: Params) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
   const supabase = getSupabase();
   const body = await request.json();
 
@@ -18,24 +22,29 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Sin campos para actualizar" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error: dbError } = await supabase
     .from("gastos_mensuales")
     .update(updates)
     .eq("id", params.id)
+    .eq("empresa_id", empresaId)
     .select("*, tipo:tipos_gasto(id, nombre, orden)")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
   return NextResponse.json(data);
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
   const supabase = getSupabase();
-  const { error } = await supabase
+  const { error: dbError } = await supabase
     .from("gastos_mensuales")
     .delete()
-    .eq("id", params.id);
+    .eq("id", params.id)
+    .eq("empresa_id", empresaId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
   return new NextResponse(null, { status: 204 });
 }

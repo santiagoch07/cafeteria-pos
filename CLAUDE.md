@@ -217,6 +217,34 @@ Fundador: santiagoch07 (Santiago Chavez), estudiante y emprendedor en Monterrey,
 - Comunicación en español.
 - Pragmatismo sobre perfeccionismo — terminar > pulir.
 
+## Patrón de uso del middleware y empresa_id
+
+El archivo `middleware.ts` en la raíz protege todas las rutas excepto `/login`, `/registro` y `/api/registro/empresa`. Si un usuario no autenticado intenta acceder a cualquier otra ruta, es redirigido a `/login`.
+
+En API routes que necesitan datos del usuario logueado, usar siempre el helper `getEmpresaIdFromSession()` de `lib/auth-server.ts`:
+
+```ts
+import { getEmpresaIdFromSession } from '@/lib/auth-server';
+
+export async function GET() {
+  const { empresaId, error } = await getEmpresaIdFromSession();
+  if (error) return error;
+
+  const supabase = getSupabase();
+  const { data } = await supabase
+    .from('productos')
+    .select('*')
+    .eq('empresa_id', empresaId);
+
+  return NextResponse.json(data);
+}
+```
+
+**Reglas críticas:**
+- Nunca hardcodear `empresa_id` en queries de producción.
+- Nunca confiar en `empresa_id` que venga del cliente (body, query param, header).
+- `getEmpresaIdFromSession()` siempre va antes de cualquier query a la BD en una API route protegida.
+
 ## Anti-patrones a evitar
 
 - **No agregar features que no se pidieron explícitamente.** Si el prompt dice "agrega X", no agregues también Y porque parece relacionado.
