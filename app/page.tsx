@@ -1,14 +1,13 @@
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+import SqnarLogo from "@/components/SqnarLogo";
 
 export default function Home() {
   return (
     <div className="h-full flex items-center justify-center px-6">
       <div className="w-full max-w-2xl space-y-10">
         {/* Logo */}
-        <p className="text-xl font-semibold text-text-strong">
-          Cafetería<span className="text-accent">.</span>
-        </p>
+        <SqnarLogo size="lg" />
 
         {/* Hero */}
         <div className="border-l-4 border-accent pl-6 space-y-4">

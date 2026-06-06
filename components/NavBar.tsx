@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Menu, X, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
+import SqnarLogo from "@/components/SqnarLogo";
 
 type NavItem = { href: string; label: string; Icon?: LucideIcon };
 
@@ -48,8 +49,8 @@ export default function NavBar() {
     <>
       <nav className="h-12 bg-bg border-b border-border flex items-center px-4 sm:px-6 gap-6 shrink-0 sticky top-0 z-40">
         {/* Logo */}
-        <Link href="/" className="text-xl font-semibold text-text-strong shrink-0">
-          Cafetería<span className="text-accent">.</span>
+        <Link href="/" className="shrink-0">
+          <SqnarLogo size="md" />
         </Link>
 
         {/* Desktop links */}
@@ -81,9 +82,7 @@ export default function NavBar() {
           />
           <div className="absolute right-0 top-0 h-full w-64 bg-surface border-l border-border flex flex-col">
             <div className="flex items-center justify-between px-5 h-14 border-b border-border">
-              <span className="text-base font-semibold text-text-strong">
-                Cafetería<span className="text-accent">.</span>
-              </span>
+              <SqnarLogo size="sm" />
               <button
                 onClick={() => setDrawerOpen(false)}
                 className="text-muted hover:text-text transition-colors"

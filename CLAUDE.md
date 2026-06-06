@@ -1,12 +1,12 @@
-# Cafetería POS — Contexto del proyecto
+# SQNAR — Contexto del proyecto
 
 ## Visión del producto
 
-POS web mobile-ready para cafeterías y restaurantes pequeños en México, con módulo de Salud Financiera que muestra rentabilidad, estado de resultados y punto de equilibrio. El producto compite contra Loyverse y Bistrosoft en el segmento de SMB mexicano, diferenciándose por simplicidad de uso y visibilidad financiera.
+SQNAR es una plataforma SaaS de QuackQuick para cafeterías y restaurantes pequeños en México. La metáfora: como un sonar le da visibilidad al submarino, SQNAR le da visibilidad financiera al dueño. Hoy la plataforma incluye un POS con módulo de Salud Financiera; el roadmap contempla agregar inventario, lealtad y facturación como productos adicionales bajo el mismo paraguas.
 
 Mercado objetivo inicial: cafeterías y restaurantes pequeños en Monterrey, NL. Precio objetivo: $899-1,499 MXN/mes por sucursal.
 
-Producto en desarrollo activo. Esquema de base de datos ya migrado a multi-tenant (campo `empresa_id` en todas las tablas). Auth y separación real de datos vienen después del primer piloto.
+Producto en desarrollo activo. Esquema de base de datos ya migrado a multi-tenant (campo `empresa_id` en todas las tablas). Auth con Supabase Auth ya implementada (Pasos 1–4). RLS se habilita en la siguiente fase.
 
 ## Stack tecnológico
 
@@ -67,6 +67,12 @@ Paleta exacta — no modificar sin autorización explícita:
 - `Button` con variantes: `primary`, `secondary`, `ghost`, `danger`. Tamaños: `sm`, `md`, `lg`, `xl`.
 - `Card`, `Input`, `Select`, `Textarea`, `Modal`, `Badge`, `StatCard`.
 - Usar estos componentes siempre antes de inventar variaciones inline.
+
+### Logo de SQNAR
+- El logo vive en `components/SqnarLogo.tsx` como componente reusable con prop `size`
+- NUNCA hardcodear el logo en páginas — siempre importar el componente
+- Las ondas y el punto central deben mantener el color amarillo accent (#FFD944)
+- No alterar las opacidades de las ondas (full / 0.7 / 0.4) — son parte de la identidad
 
 ### Reglas estrictas de diseño
 - **NO** sombras dramáticas (no funcionan en dark mode plano). Usar bordes y diferencia de surface.
@@ -146,7 +152,7 @@ Este patrón ya está aplicado en todas las routes existentes. Mantenerlo para n
 - `/finanzas/gastos` — Captura mensual de gastos por categoría
 
 ## Navegación
-Top nav sticky con links: Caja (`/pos`), Productos (`/admin/productos`), Corte (`/corte`), Finanzas (`/finanzas`). Logo "Cafetería." con punto amarillo a la izquierda.
+Top nav sticky con links: Caja (`/pos`), Productos (`/admin/productos`), Corte (`/corte`), Finanzas (`/finanzas`). Logo SQNAR (`<SqnarLogo size="md" />`) a la izquierda.
 
 ## Variables de entorno
 

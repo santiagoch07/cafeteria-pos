@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Cafetería POS",
-  description: "Sistema de punto de venta para cafetería",
+  title: "SQNAR · Claridad financiera para tu negocio",
+  description: "Sistema de punto de venta y salud financiera para cafeterías y restaurantes en México.",
 };
 
 export default function RootLayout({

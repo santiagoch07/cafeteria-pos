@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import SqnarLogo from "@/components/SqnarLogo";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
@@ -68,10 +69,8 @@ export default function RegistroPage() {
       <div className="w-full max-w-sm space-y-8">
 
         {/* Logo */}
-        <div className="text-center">
-          <p className="text-3xl font-semibold text-text-strong">
-            Cafetería<span className="text-accent">.</span>
-          </p>
+        <div className="flex justify-center">
+          <SqnarLogo size="lg" />
         </div>
 
         {/* Card */}

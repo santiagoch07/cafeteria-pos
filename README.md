@@ -1,8 +1,8 @@
-# Sonar
+# SQNAR
 
-**Sonar** is a SaaS Point of Sale (POS) and financial intelligence platform built for small businesses in Mexico.
+**SQNAR** is the SaaS platform by [QuackQuick](https://quackquick.com) for cafés and small restaurants in Mexico. The name comes from *sonar* + the Q of QuackQuick: just as a sonar gives a submarine visibility of its surroundings, SQNAR gives business owners financial visibility of their operation.
 
-Our mission is simple: help business owners understand whether they are actually making money, without needing an accountant or advanced financial knowledge.
+Today the platform includes a Point of Sale with a Financial Health module. The roadmap adds inventory, loyalty, and invoicing as additional products under the same umbrella.
 
 ---
 
@@ -10,7 +10,7 @@ Our mission is simple: help business owners understand whether they are actually
 
 Most small businesses know how much they sell, but very few know how profitable they truly are.
 
-Sonar transforms daily sales data into actionable financial insights, allowing business owners to make better decisions in real time.
+SQNAR transforms daily sales data into actionable financial insights, allowing business owners to make better decisions in real time.
 
 ---
 
@@ -25,7 +25,7 @@ Many Mexican SMEs operate with limited financial visibility:
 
 While platforms like Odoo provide extensive functionality, they often require significant onboarding, configuration, and training.
 
-Sonar focuses on simplicity, speed, and accessibility.
+SQNAR focuses on simplicity, speed, and accessibility.
 
 ---
 
@@ -74,7 +74,7 @@ Understand:
 
 ## 🏢 Target Market
 
-Sonar is designed for:
+SQNAR is designed for:
 
 - Small businesses
 - Local retailers
@@ -98,7 +98,7 @@ Primary market:
 
 ## 🥊 Competitive Advantage
 
-| Sonar                    | Traditional ERP Systems              |
+| SQNAR                    | Traditional ERP Systems              |
 | ------------------------ | ------------------------------------ |
 | Simple setup             | Complex implementation               |
 | Focused on profitability | Broad enterprise features            |
