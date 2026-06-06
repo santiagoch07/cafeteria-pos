@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import Input from "@/components/ui/Input";
@@ -12,6 +12,8 @@ const supabase = getSupabaseBrowser();
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const wasRedirected = searchParams.get("redirect") === "1";
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [error, setError]       = useState("");
@@ -49,6 +51,12 @@ export default function LoginPage() {
             <h1 className="text-3xl font-semibold text-text-strong">Iniciar sesión</h1>
             <p className="text-sm text-muted">Bienvenido de vuelta</p>
           </div>
+
+          {wasRedirected && !error && (
+            <p className="text-sm text-muted bg-surface-2 rounded-lg px-4 py-3">
+              Tu sesión expiró. Inicia sesión de nuevo.
+            </p>
+          )}
 
           {error && (
             <p className="text-sm text-error bg-error/10 rounded-lg px-4 py-3">{error}</p>

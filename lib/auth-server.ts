@@ -1,6 +1,25 @@
 import { getSupabaseServer } from "./supabase-server";
 import { NextResponse } from "next/server";
 
+/**
+ * Obtiene datos del usuario logueado: nombre, email, empresa.
+ * Retorna null si no hay sesión (o si el usuario no tiene fila en usuarios).
+ */
+export async function getUsuarioActual() {
+  const supabase = getSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: usuario } = await supabase
+    .from("usuarios")
+    .select("id, email, nombre, empresa_id, empresa:empresas(id, nombre)")
+    .eq("id", user.id)
+    .single();
+
+  return usuario ?? null;
+}
+
 type EmpresaOk  = { empresaId: string; error: null };
 type EmpresaErr = { empresaId: null; error: NextResponse };
 

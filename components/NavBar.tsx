@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import UserMenu from "@/components/UserMenu";
 
 type NavItem = { href: string; label: string; Icon?: LucideIcon };
 
@@ -58,14 +59,17 @@ export default function NavBar() {
           ))}
         </div>
 
-        {/* Mobile hamburger */}
-        <button
-          className="sm:hidden ml-auto text-muted hover:text-text transition-colors"
-          onClick={() => setDrawerOpen(true)}
-          aria-label="Abrir menú"
-        >
-          <Menu size={20} />
-        </button>
+        {/* Right side: user menu + mobile hamburger */}
+        <div className="ml-auto flex items-center gap-3">
+          <UserMenu />
+          <button
+            className="sm:hidden text-muted hover:text-text transition-colors"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Abrir menú"
+          >
+            <Menu size={20} />
+          </button>
+        </div>
       </nav>
 
       {/* Mobile drawer */}

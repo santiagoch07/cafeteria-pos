@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PATHS = ["/login", "/registro"];
-const PUBLIC_API   = ["/api/registro/empresa"];
+const PUBLIC_API   = ["/api/registro/empresa", "/api/me"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -33,6 +33,7 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublicPath && !isPublicApi) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.searchParams.set("redirect", "1");
     return NextResponse.redirect(url);
   }
 
