@@ -260,3 +260,4 @@ export async function GET() {
 - **No habilitar Row-Level Security** todavía (es para fase multi-tenant).
 - **No usar `any` en TypeScript** salvo casos justificados.
 - **No reformatear archivos completos** cuando solo se piden cambios específicos.
+
