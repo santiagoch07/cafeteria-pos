@@ -148,7 +148,8 @@ Este patrón ya está aplicado en todas las routes existentes. Mantenerlo para n
 - `/admin/productos` — CRUD de productos con costo y margen
 - `/corte` — Resumen del día con KPIs, comparativos, top productos, gráfica por hora
 - `/corte/turno` — Cierre de turno con cuadre de efectivo
-- `/finanzas` — Dashboard de Salud Financiera (KPIs + cascada + punto de equilibrio)
+- `/finanzas` — Dashboard de Salud Financiera (KPIs + cascada + punto de equilibrio + top 5 productos)
+- `/finanzas/productos` — Ranking de productos por rentabilidad con análisis e insights
 - `/finanzas/gastos` — Captura mensual de gastos por categoría
 
 ## Navegación
@@ -201,6 +202,7 @@ return Response.json(data);
 - **Métodos de pago**: efectivo y tarjeta. Tarjeta es manual por ahora; integración con terminal/QR es roadmap.
 - **Propina** se captura en el POS (no en la terminal bancaria) por simplicidad inicial.
 - **Modo offline**: no soportado por ahora. Roadmap si los pilotos lo piden.
+- **Ranking de productos por rentabilidad implementado**. Permite identificar productos con alto margen vs alto volumen. Insight automático cuando hay desalineación entre el más vendido y el que más ganancia genera.
 
 ## Roadmap conocido (no construir sin pedirlo explícito)
 

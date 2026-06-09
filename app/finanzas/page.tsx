@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { formatMXN } from "@/lib/format";
 import Spinner from "@/components/ui/Spinner";
+import type { ProductoRanking } from "@/lib/types";
 
 const WaterfallChart = dynamic(() => import("@/components/WaterfallChart"), { ssr: false });
 const PEChart = dynamic(() => import("@/components/PEChart"), { ssr: false });
@@ -85,13 +86,19 @@ export default function FinanzasDashboard() {
   const [mes, setMes] = useState(ahora.getMonth() + 1);
   const [año, setAño] = useState(ahora.getFullYear());
   const [data, setData] = useState<DashData | null>(null);
+  const [productosTop5, setProductosTop5] = useState<ProductoRanking[]>([]);
   const [loading, setLoading] = useState(true);
 
   const cargar = useCallback(() => {
     setLoading(true);
-    fetch(`/api/finanzas/dashboard?mes=${mes}&anio=${año}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setData)
+    Promise.all([
+      fetch(`/api/finanzas/dashboard?mes=${mes}&anio=${año}`, { cache: "no-store" }).then((r) => r.json()),
+      fetch(`/api/finanzas/productos?mes=${mes}&anio=${año}`, { cache: "no-store" }).then((r) => r.json()),
+    ])
+      .then(([dashData, prodData]: [DashData, unknown]) => {
+        setData(dashData);
+        setProductosTop5(Array.isArray(prodData) ? (prodData as ProductoRanking[]).slice(0, 5) : []);
+      })
       .finally(() => setLoading(false));
   }, [mes, año]);
 
@@ -309,6 +316,42 @@ export default function FinanzasDashboard() {
                     <span className="w-5 h-0.5 bg-[#6B7280] inline-block" style={{ backgroundImage: "repeating-linear-gradient(90deg,#6B7280 0,#6B7280 4px,transparent 4px,transparent 8px)" }} />
                     Punto de equilibrio
                   </span>
+                </div>
+              </div>
+            )}
+
+            {/* ── Top 5 productos más rentables ── */}
+            {productosTop5.length > 0 && (
+              <div className="bg-surface border border-border rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted uppercase tracking-widest">
+                    Tus 5 productos más rentables del mes
+                  </p>
+                  <Link
+                    href="/finanzas/productos"
+                    className="text-xs text-muted hover:text-accent transition-colors"
+                  >
+                    Ver ranking completo →
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {productosTop5.map((p) => (
+                    <div key={p.producto_id} className="flex items-center gap-3">
+                      <span className="text-sm text-text flex-1 truncate min-w-0">{p.nombre}</span>
+                      <div className="w-20 h-1.5 bg-surface-2 rounded-full overflow-hidden shrink-0">
+                        <div
+                          className="h-full bg-accent rounded-full transition-all"
+                          style={{ width: `${p.participacion_ganancia}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-text-strong tabular-nums shrink-0 w-20 text-right">
+                        {formatMXN(p.ganancia_total)}
+                      </span>
+                      <span className="text-xs text-muted shrink-0 w-16 text-right">
+                        {p.unidades_vendidas} vendidos
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

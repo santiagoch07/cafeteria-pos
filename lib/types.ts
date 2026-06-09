@@ -88,6 +88,21 @@ export type OrdenItem = {
 
 // ── Finanzas ─────────────────────────────────────────────────
 
+export type ProductoRanking = {
+  producto_id: string;
+  nombre: string;
+  categoria_nombre: string | null;
+  precio: number;                    // centavos MXN
+  costo: number;                     // centavos MXN
+  margen_unitario: number;           // precio - costo, centavos
+  margen_porcentaje: number;         // (margen / precio) * 100, 1 decimal
+  unidades_vendidas: number;
+  ingreso_total: number;             // unidades * precio, centavos
+  ganancia_total: number;            // unidades * margen_unitario, centavos
+  participacion_ganancia: number;    // % sobre total_ganancia de todos los productos
+  costo_no_capturado?: boolean;      // true si costo era null o 0
+};
+
 export type Gasto = {
   id: string;
   empresa_id: string;
