@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { getEmpresaIdFromSession } from "@/lib/auth-server";
+import { getTiposGastoVisibles } from "@/lib/tipos-gasto";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -30,7 +31,7 @@ function mesPrevio(mes: number, anio: number) {
 type ItemRow     = { cantidad: number; producto: { costo: number } | null };
 type OrdenRow    = { total: number; fecha: string; items: ItemRow[] };
 type OrdenPrevRow = { total: number; items: ItemRow[] };
-type GastoRow    = { monto: number; tipo: { nombre: string; orden: number } };
+type GastoRow    = { monto: number; tipo_gasto_id: string | null; tipo_gasto_empresa_id: string | null };
 
 function sumarOrden(ordenes: OrdenRow[] | OrdenPrevRow[]) {
   let ventas = 0, costo = 0;
@@ -66,29 +67,47 @@ export async function GET(request: Request) {
   const prev      = mesPrevio(mes, anio);
   const rangoPrev = rangoMes(prev.mes, prev.anio);
 
+  // Tipos de gasto visibles — resuelve nombres base + overrides + custom en paralelo con las queries
   const [
-    { data: ordenes,     error: e1 },
-    { data: gastos,      error: e2 },
-    { data: ordenesPrev, error: e3 },
-    { data: gastosPrev,  error: e4 },
+    tipos,
+    [{ data: ordenes, error: e1 }, { data: gastos, error: e2 }, { data: ordenesPrev, error: e3 }, { data: gastosPrev, error: e4 }],
   ] = await Promise.all([
-    supabase.from("ordenes")
-      .select("total, fecha, items:orden_items(cantidad, producto:productos(costo))")
-      .eq("empresa_id", empresaId)
-      .gte("fecha", rango.inicio).lt("fecha", rango.fin),
-    supabase.from("gastos_mensuales")
-      .select("monto, tipo:tipos_gasto(nombre, orden)")
-      .eq("empresa_id", empresaId)
-      .eq("mes", mes).eq("año", anio),
-    supabase.from("ordenes")
-      .select("total, items:orden_items(cantidad, producto:productos(costo))")
-      .eq("empresa_id", empresaId)
-      .gte("fecha", rangoPrev.inicio).lt("fecha", rangoPrev.fin),
-    supabase.from("gastos_mensuales")
-      .select("monto")
-      .eq("empresa_id", empresaId)
-      .eq("mes", prev.mes).eq("año", prev.anio),
+    getTiposGastoVisibles(empresaId),
+    Promise.all([
+      supabase.from("ordenes")
+        .select("total, fecha, items:orden_items(cantidad, producto:productos(costo))")
+        .eq("empresa_id", empresaId)
+        .gte("fecha", rango.inicio).lt("fecha", rango.fin),
+      supabase.from("gastos_mensuales")
+        .select("monto, tipo_gasto_id, tipo_gasto_empresa_id")
+        .eq("empresa_id", empresaId)
+        .eq("mes", mes).eq("año", anio),
+      supabase.from("ordenes")
+        .select("total, items:orden_items(cantidad, producto:productos(costo))")
+        .eq("empresa_id", empresaId)
+        .gte("fecha", rangoPrev.inicio).lt("fecha", rangoPrev.fin),
+      supabase.from("gastos_mensuales")
+        .select("monto")
+        .eq("empresa_id", empresaId)
+        .eq("mes", prev.mes).eq("año", prev.anio),
+    ]),
   ]);
+
+  // Mapas: base_tipo_id → nombre, empresa_tipo_id → nombre
+  // tipo_base_id cubre la clave que usa un gasto con tipo_gasto_id cuando ese tipo fue renombrado
+  const baseNombreMap = new Map<string, string>();
+  const customNombreMap = new Map<string, string>();
+  for (const t of tipos) {
+    if (t.tipo_gasto_id) baseNombreMap.set(t.tipo_gasto_id, t.nombre);
+    if (t.tipo_base_id)  baseNombreMap.set(t.tipo_base_id, t.nombre);
+    if (t.tipo_gasto_empresa_id && !t.tipo_base_id) customNombreMap.set(t.tipo_gasto_empresa_id, t.nombre);
+  }
+
+  function resolverNombre(g: GastoRow): string {
+    if (g.tipo_gasto_id) return baseNombreMap.get(g.tipo_gasto_id) ?? "Sin categoría";
+    if (g.tipo_gasto_empresa_id) return customNombreMap.get(g.tipo_gasto_empresa_id) ?? "Sin categoría";
+    return "Sin categoría";
+  }
 
   if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
   if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
@@ -143,7 +162,7 @@ export async function GET(request: Request) {
     .filter(g => g.monto > 0)
     .sort((a, b) => b.monto - a.monto)
     .map(g => ({
-      tipo_nombre: g.tipo.nombre,
+      tipo_nombre: resolverNombre(g),
       monto: g.monto,
       porcentaje: gastos_fijos > 0 ? Math.round(g.monto / gastos_fijos * 100) : 0,
     }));
