@@ -91,18 +91,21 @@ export default function FinanzasDashboard() {
 
   const cargar = useCallback(() => {
     setLoading(true);
-    Promise.all([
-      fetch(`/api/finanzas/dashboard?mes=${mes}&anio=${año}`, { cache: "no-store" }).then((r) => r.json()),
-      fetch(`/api/finanzas/productos?mes=${mes}&anio=${año}`, { cache: "no-store" }).then((r) => r.json()),
-    ])
-      .then(([dashData, prodData]: [DashData, unknown]) => {
-        setData(dashData);
-        setProductosTop5(Array.isArray(prodData) ? (prodData as ProductoRanking[]).slice(0, 5) : []);
-      })
+    fetch(`/api/finanzas/dashboard?mes=${mes}&anio=${año}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then(setData)
       .finally(() => setLoading(false));
   }, [mes, año]);
 
+  const cargarProductos = useCallback(() => {
+    fetch(`/api/finanzas/productos?mes=${mes}&anio=${año}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setProductosTop5(Array.isArray(d) ? (d as ProductoRanking[]).slice(0, 5) : []))
+      .catch(() => setProductosTop5([]));
+  }, [mes, año]);
+
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { cargarProductos(); }, [cargarProductos]);
 
   // Datos derivados
   const k = data?.kpis;
