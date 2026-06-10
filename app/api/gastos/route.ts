@@ -46,6 +46,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
   }
 
+  // Verificar duplicado filtrando por empresa_id — evita falso positivo con datos de otras empresas
+  const matchCol = es_base ? "tipo_gasto_id" : "tipo_gasto_empresa_id";
+  const { data: existing } = await supabase
+    .from("gastos_mensuales")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("mes", mes)
+    .eq("año", anio)
+    .eq(matchCol, tipo_id)
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json(
+      { error: "Ya existe un gasto de este tipo este mes. Edítalo en lugar de crear uno nuevo." },
+      { status: 409 }
+    );
+  }
+
   const insertData: Record<string, unknown> = {
     mes,
     año: anio,
@@ -69,12 +87,6 @@ export async function POST(request: Request) {
     .single();
 
   if (dbError) {
-    if (dbError.code === "23505") {
-      return NextResponse.json(
-        { error: "Ya existe un gasto de este tipo este mes. Edítalo en lugar de crear uno nuevo." },
-        { status: 409 }
-      );
-    }
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
