@@ -13,11 +13,28 @@ export async function getUsuarioActual() {
 
   const { data: usuario } = await supabase
     .from("usuarios")
-    .select("id, email, nombre, empresa_id, empresa:empresas(id, nombre)")
+    .select("id, email, nombre, rol, empresa_id, empresa:empresas(id, nombre)")
     .eq("id", user.id)
     .single();
 
   return usuario ?? null;
+}
+
+export async function getRolFromSession(): Promise<"dueno" | "cajero" | null> {
+  const usuario = await getUsuarioActual();
+  if (!usuario) return null;
+  return usuario.rol as "dueno" | "cajero";
+}
+
+export async function requireRol(rolesPermitidos: ("dueno" | "cajero")[]) {
+  const rol = await getRolFromSession();
+  if (!rol) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  if (!rolesPermitidos.includes(rol)) {
+    return NextResponse.json({ error: "Acceso restringido" }, { status: 403 });
+  }
+  return null;
 }
 
 type EmpresaOk  = { empresaId: string; error: null };

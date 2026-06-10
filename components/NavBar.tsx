@@ -5,16 +5,18 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { Rol } from "@/lib/types";
 import UserMenu from "@/components/UserMenu";
 import SqnarLogo from "@/components/SqnarLogo";
 
-type NavItem = { href: string; label: string; Icon?: LucideIcon };
+type NavItem = { href: string; label: string; Icon?: LucideIcon; roles?: Rol[] };
 
 const LINKS: NavItem[] = [
-  { href: "/pos",              label: "Caja" },
-  { href: "/admin/productos",  label: "Productos" },
-  { href: "/corte",            label: "Corte" },
-  { href: "/finanzas",         label: "Finanzas", Icon: TrendingUp },
+  { href: "/pos",             label: "Caja" },
+  { href: "/admin/productos", label: "Productos",                 roles: ["dueno"] },
+  { href: "/corte",           label: "Corte" },
+  { href: "/finanzas",        label: "Finanzas", Icon: TrendingUp, roles: ["dueno"] },
+  { href: "/equipo",          label: "Equipo",                    roles: ["dueno"] },
 ];
 
 function NavLink({ href, label, active, Icon, onClick }: { href: string; label: string; active: boolean; Icon?: LucideIcon; onClick?: () => void }) {
@@ -37,9 +39,11 @@ function NavLink({ href, label, active, Icon, onClick }: { href: string; label: 
   );
 }
 
-export default function NavBar() {
+export default function NavBar({ rol }: { rol?: Rol | null }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const visibleLinks = LINKS.filter((l) => !l.roles || (rol && l.roles.includes(rol)));
 
   function isActive(href: string) {
     return href === "/pos" ? pathname === "/pos" : pathname.startsWith(href);
@@ -55,7 +59,7 @@ export default function NavBar() {
 
         {/* Desktop links */}
         <div className="hidden sm:flex items-center gap-6 h-full">
-          {LINKS.map(({ href, label, Icon }) => (
+          {visibleLinks.map(({ href, label, Icon }) => (
             <NavLink key={href} href={href} label={label} active={isActive(href)} Icon={Icon} />
           ))}
         </div>
@@ -91,7 +95,7 @@ export default function NavBar() {
               </button>
             </div>
             <div className="flex flex-col gap-1 p-3">
-              {LINKS.map(({ href, label }) => (
+              {visibleLinks.map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}

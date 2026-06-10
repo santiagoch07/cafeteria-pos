@@ -14,12 +14,15 @@ export type Empresa = {
   updated_at: string;
 };
 
+export type Rol = "dueno" | "cajero";
+
 export type Usuario = {
   id: string;           // mismo que auth.users.id de Supabase Auth
   empresa_id: string;
   email: string;
-  nombre: string;
-  created_at: string;
+  nombre: string | null;
+  rol: Rol;
+  created_at?: string;
 };
 
 // ── Catálogo de productos ────────────────────────────────────

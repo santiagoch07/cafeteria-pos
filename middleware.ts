@@ -44,6 +44,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Cajero intentando acceder a rutas exclusivas de dueño → redirigir a /pos
+  const RESTRICTED_TO_DUENO = ["/admin", "/finanzas", "/equipo"];
+  if (user && !isPublicPath && !isPublicApi) {
+    const isRestricted = RESTRICTED_TO_DUENO.some((p) => pathname.startsWith(p));
+    if (isRestricted) {
+      const { data: usuario } = await supabase
+        .from("usuarios")
+        .select("rol")
+        .eq("id", user.id)
+        .single();
+
+      if (usuario?.rol === "cajero") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/pos";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
   return response;
 }
 
